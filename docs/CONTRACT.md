@@ -188,6 +188,20 @@ func Run(args []string, env Env) int // 返回进程退出码
 | `SaveFeatures(model.FeatureConfig)` | `model.State` | 保存功能开关 |
 | `SaveSettings(model.Settings)` | `model.State` | 校验保存；端口变化且服务在运行时自动重启服务 |
 | `GetLogs(limit int)` | `[]model.LogEntry` | 服务运行时取内存日志，否则读日志文件尾部 |
+| `GetUpdateInfo()` | `model.UpdateInfo` | 最近一次检查的缓存结果（未检查时只含当前版本） |
+| `CheckForUpdates()` | `model.UpdateInfo` | 访问 GitHub Releases latest 接口检查新版本 |
+| `InstallUpdate()` | `string` | 下载、校验并安排替换安装；成功后 App 退出重启 |
+
+自动更新资产约定（与 `.github/workflows/release.yml`、`tools/package-release.sh` 保持一致）：
+
+- `ykt-darwin-arm64.zip` / `ykt-darwin-amd64.zip`：内含 `雨课助手.app`
+- `ykt-windows-amd64.zip`：内含 `ykt.exe`
+- `ykt-linux-amd64.tar.gz`：内含 `ykt`
+- `checksums.txt`：每行 `sha256  <asset>`；缺失校验信息时 App 拒绝安装
+- 版本以 release tag（`v1.1.0`）为准；下载后校验 SHA256、`CFBundleShortVersionString` 与 `CFBundleIdentifier`（`com.wails.ykt`）
+- 仅允许从 `/Applications`、`~/Applications` 下的正式 App 自替换；开发构建会返回明确错误
+- 测试可用 `YKT_UPDATE_API_URL` 覆盖 latest 接口，`YKT_UPDATE_DISABLE=1` 关闭检查/安装
+
 | `ClearLogs()` | `error` | 清空内存与文件日志 |
 | `RevealPath(which string)` | `error` | `home`/`config`/`log` 三类路径，用系统文件管理器定位 |
 | `SetClipboard(text string)` | `error` | 写系统剪贴板 |

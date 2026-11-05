@@ -104,7 +104,7 @@
   function buildMockState() {
     var now = Date.now();
     return {
-      appVersion: '1.0.1',
+      appVersion: '1.1.0',
       platform: 'darwin',
       homeDir: '/Users/demo/.ykt',
       configPath: '/Users/demo/.ykt/config.json',
@@ -461,6 +461,84 @@
       sel.setAttribute('data-range', sig);
     }
   }
+  /* ───────────── 更新 ───────────── */
+  var mockUpdate = { currentVersion: '1.1.0', latestVersion: '1.1.0', available: false, publishedAt: 0, notes: '', assetName: '', assetSize: 0, assetUrl: '', checksum: '' };
+  var updateInfo = null;
+  var updateBusy = false;
+
+  function updateStatusText(info) {
+    var current = 'v' + ((state && state.appVersion) || '—');
+    if (updateBusy) return info && info.available ? '正在安装更新…' : '正在检查更新…';
+    if (!info) return '当前 ' + current + ' · 尚未检查';
+    if (!info.available) return '当前 ' + current + ' · 已是最新';
+    return '当前 ' + current + ' · 可更新至 v' + info.latestVersion;
+  }
+  function renderUpdate() {
+    var info = MOCK ? mockUpdate : updateInfo;
+    text('#updateStatus', updateStatusText(info));
+    var installBtn = $('#btnInstallUpdate');
+    if (installBtn) {
+      installBtn.hidden = !(info && info.available) || updateBusy;
+      installBtn.textContent = '下载并重启';
+    }
+    var checkBtn = $('#btnCheckUpdate');
+    if (checkBtn) {
+      checkBtn.disabled = updateBusy;
+      checkBtn.textContent = updateBusy ? '检查中…' : '检查更新';
+    }
+    var notesRow = $('#updateNotesRow');
+    var notes = info && info.available ? (info.notes || '') : '';
+    if (notesRow) notesRow.hidden = !notes;
+    if (notes) text('#updateNotes', notes.length > 320 ? notes.slice(0, 320) + '…' : notes);
+  }
+  function checkUpdates() {
+    if (updateBusy) return;
+    updateBusy = true;
+    renderUpdate();
+    var task;
+    if (MOCK) {
+      task = wait(450).then(function () { return mockUpdate; });
+    } else {
+      task = requireBindings().CheckForUpdates();
+    }
+    task.then(function (info) {
+      if (!MOCK && info) updateInfo = info;
+      updateBusy = false;
+      renderUpdate();
+      if (info && info.available) toast('发现新版本 v' + info.latestVersion, 'info');
+      else toast('已是最新版本', 'success');
+    }).catch(function (err) {
+      updateBusy = false;
+      renderUpdate();
+      toast('检查更新失败：' + errMsg(err), 'error');
+    });
+  }
+  function installUpdate() {
+    var info = MOCK ? mockUpdate : updateInfo;
+    if (!info || !info.available || updateBusy) return;
+    openConfirm({
+      title: '下载并安装 v' + info.latestVersion + '？',
+      message: 'App 会退出并自动重启；安装失败会回滚到当前版本。',
+      confirmText: '下载并安装',
+      onConfirm: function () {
+        updateBusy = true;
+        renderUpdate();
+        if (MOCK) {
+          return wait(600).then(function () { updateBusy = false; renderUpdate(); toast('预览模式不执行安装', 'info'); });
+        }
+        return requireBindings().InstallUpdate().then(function (message) {
+          updateBusy = false;
+          renderUpdate();
+          toast(message || '更新已开始', 'success');
+        }).catch(function (err) {
+          updateBusy = false;
+          renderUpdate();
+          toast('安装更新失败：' + errMsg(err), 'error');
+        });
+      }
+    });
+  }
+
   function fillSettingsForm(force) {
     if (!state) return;
     if (settingsDirty && !force) return;
@@ -475,6 +553,7 @@
     text('#pathLog', state.logPath || '—');
     text('#aboutVersion', 'App v' + (state.appVersion || '—') + ' · 脚本 v' + (state.script.version || '—'));
     text('#aboutPlatform', platformLabel(state.platform));
+    renderUpdate();
     settingsDirty = false;
     pendingAppearance = null;
     updateDirtyChips();
@@ -630,6 +709,14 @@
     else stopLogPolling();
     if (page === 'ai' && !aiDirty) fillAIForm();
     if (page === 'settings' && !settingsDirty) fillSettingsForm();
+    if (page === 'settings' && !MOCK) {
+      requireBindings().GetUpdateInfo().then(function (info) {
+        if (info && (info.latestVersion || info.currentVersion)) {
+          updateInfo = info;
+          renderUpdate();
+        }
+      }).catch(function () { /* 忽略：点检查更新时会给出错误 */ });
+    }
   }
 
   /* ───────────── 操作辅助 ───────────── */
@@ -1053,6 +1140,10 @@
     if (revealConfig) revealConfig.addEventListener('click', function () { revealPath('home', '配置目录', revealConfig); });
     var revealLogPath = $('#btnRevealLogPath');
     if (revealLogPath) revealLogPath.addEventListener('click', function () { revealPath('log', '日志文件', revealLogPath); });
+    var checkUpdateBtn = $('#btnCheckUpdate');
+    if (checkUpdateBtn) checkUpdateBtn.addEventListener('click', checkUpdates);
+    var installUpdateBtn = $('#btnInstallUpdate');
+    if (installUpdateBtn) installUpdateBtn.addEventListener('click', installUpdate);
     $$('[data-external]').forEach(function (btn) {
       btn.addEventListener('click', function () { openExternal(btn.getAttribute('data-external')); });
     });

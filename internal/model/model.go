@@ -144,3 +144,16 @@ type SyncConfig struct {
 type SyncFlag struct {
 	Enabled bool `json:"enabled"`
 }
+
+// UpdateInfo 是 GitHub Releases 最新版本与当前版本的比较结果。
+type UpdateInfo struct {
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	Available      bool   `json:"available"`
+	PublishedAt    int64  `json:"publishedAt"` // Unix 毫秒
+	Notes          string `json:"notes"`       // Release 说明（截断）
+	AssetName      string `json:"assetName"`
+	AssetSize      int64  `json:"assetSize"`
+	AssetURL       string `json:"assetUrl"`
+	Checksum       string `json:"checksum"` // sha256 hex
+}

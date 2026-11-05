@@ -7,7 +7,7 @@ ifeq ($(shell uname -s),Darwin)
 GUI_ENV := CGO_LDFLAGS="-framework UniformTypeIdentifiers"
 endif
 
-.PHONY: all app cli test vet fmt clean install-cli
+.PHONY: all app cli test vet fmt clean install-cli release
 
 all: app cli
 
@@ -46,6 +46,10 @@ cross-cli:
 	GOOS=darwin  GOARCH=amd64 go build -tags cli -ldflags "-s -w" -o dist/ykt-darwin-amd64 .
 	GOOS=linux   GOARCH=amd64 go build -tags cli -ldflags "-s -w" -o dist/ykt-linux-amd64 .
 	GOOS=windows GOARCH=amd64 go build -tags cli -ldflags "-s -w" -o dist/ykt-windows-amd64.exe .
+
+## release: 打包 GitHub Release 资产（App 自更新用），可用 VERSION=x.y.z 指定版本
+release:
+	VERSION=$(VERSION) bash tools/package-release.sh
 
 clean:
 	rm -rf build/bin bin dist

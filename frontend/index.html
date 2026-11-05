@@ -560,6 +560,27 @@
                   </div>
                 </div>
               </section>
+
+              <section class="group" aria-labelledby="groupUpdate">
+                <h2 class="group-title" id="groupUpdate">更新</h2>
+                <div class="group-box">
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">软件更新</div>
+                      <div class="row-desc mono" id="updateStatus">当前 v— · 尚未检查</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="btn btn-sm" type="button" id="btnCheckUpdate" aria-label="检查更新">检查更新</button>
+                      <button class="btn btn-sm btn-primary" type="button" id="btnInstallUpdate" aria-label="下载并安装更新" hidden>下载并重启</button>
+                    </div>
+                  </div>
+                  <div class="row" id="updateNotesRow" hidden>
+                    <div class="row-copy">
+                      <div class="row-desc" id="updateNotes"></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
 
             <div class="settings-col">

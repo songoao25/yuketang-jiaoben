@@ -73,6 +73,26 @@ make install-cli         # 安装到 ~/.local/bin/ykt
 
 支持的 AI 服务商：DeepSeek、Kimi（Moonshot）、通义千问、OpenAI、Claude（Anthropic），也支持任何兼容 OpenAI / Anthropic 格式的地址。
 
+## 自动更新
+
+桌面 App 从本仓库的 GitHub Releases 检查更新（设置 → 更新）：
+
+- 启动后静默检查一次；发现新版本会提示，在「设置 → 更新」里点「下载并重启」
+- 下载后强制校验 Release 里的 `checksums.txt`（SHA256），校验 App 标识与版本号后才替换
+- 替换由脱离的辅助脚本在本 App 退出后完成，失败自动回滚；更新日志在 `~/.ykt/update.log`
+- 仅支持从 `/Applications` 或 `~/Applications` 运行的正式包；仓库里的开发构建不会自替换
+
+发布新版本（维护者）：
+
+```bash
+# 本地打包检查（产物在 dist/release/）
+VERSION=1.1.0 bash tools/package-release.sh
+# 打标签推送，GitHub Actions 会自动构建并发布 Release（资产命名见 .github/workflows/release.yml）
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+已知限制：App 未签名/未公证，首次分发仍可能被 Gatekeeper 拦截（右键打开）；自动更新只校验 SHA256 与 GitHub TLS，不提供 Sparkle 级签名链；Windows/Linux 的桌面 App 暂未纳入自动发布，CLI 用户可继续 `make cross-cli` 或下载 Release 资产。
+
 ## 界面预览
 
 | 概览（浅色） | 概览（深色） |
@@ -83,7 +103,7 @@ make install-cli         # 安装到 ~/.local/bin/ykt
 | --- | --- |
 | ![AI 配置](docs/screenshots/ai-light.png) | ![运行日志](docs/screenshots/logs-dark.png) |
 
-| 设置 | 真实窗口（浅色） |
+| 设置（含软件更新） | 真实窗口（浅色） |
 | --- | --- |
 | ![设置](docs/screenshots/settings-light.png) | ![真实窗口浅色](docs/screenshots/app-window-light.png) |
 

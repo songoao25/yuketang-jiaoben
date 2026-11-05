@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/songoao25/yuketang-jiaoben/internal/model"
 	"github.com/songoao25/yuketang-jiaoben/internal/script"
 	"github.com/songoao25/yuketang-jiaoben/internal/server"
+	"github.com/songoao25/yuketang-jiaoben/internal/updater"
 )
 
 // App 是 Wails 窗口后端，所有导出方法都会绑定为 window.go.main.App.*。
@@ -34,6 +36,8 @@ type App struct {
 	srv           *server.Server
 	externalPID   int
 	externalOwner string // gui | daemon | 空
+	updateInfo    model.UpdateInfo
+	updateChecked bool
 }
 
 // NewApp 创建窗口后端。scriptSource 是内置用户脚本正文。
@@ -57,6 +61,7 @@ func (a *App) startup(ctx context.Context) {
 			a.emit("自动启动本地服务失败：" + err.Error())
 		}
 	}
+	go a.autoCheckUpdates()
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -320,6 +325,113 @@ func (a *App) OpenExternal(url string) error {
 		return errors.New("仅支持打开 http/https 链接")
 	}
 	return browser.OpenURL(url)
+}
+
+// ---------------------------------------------------------------- 自动更新
+
+// GetUpdateInfo 返回最近一次检查的缓存结果（未检查时只有当前版本）。
+func (a *App) GetUpdateInfo() (model.UpdateInfo, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	info := a.updateInfo
+	info.CurrentVersion = a.appVersion
+	return info, nil
+}
+
+// CheckForUpdates 访问 GitHub Releases 检查新版本。
+func (a *App) CheckForUpdates() (model.UpdateInfo, error) {
+	if os.Getenv("YKT_UPDATE_DISABLE") == "1" {
+		return a.cachedUpdateInfo(), errors.New("自动更新已禁用（YKT_UPDATE_DISABLE=1）")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	info, err := updater.Check(ctx, updater.NewOptions(a.appVersion))
+	if err != nil {
+		a.updateLog("检查更新失败: %v", err)
+		return a.cachedUpdateInfo(), err
+	}
+	info.CurrentVersion = a.appVersion
+	a.mu.Lock()
+	a.updateInfo = info
+	a.updateChecked = true
+	a.mu.Unlock()
+	if info.Available {
+		a.updateLog("发现新版本 v%s（当前 v%s）", info.LatestVersion, a.appVersion)
+	}
+	return info, nil
+}
+
+// InstallUpdate 下载并安排安装更新。成功后 App 会自动退出并重启。
+func (a *App) InstallUpdate() (string, error) {
+	if os.Getenv("YKT_UPDATE_DISABLE") == "1" {
+		return "", errors.New("自动更新已禁用（YKT_UPDATE_DISABLE=1）")
+	}
+	info := a.cachedUpdateInfo()
+	if !info.Available {
+		checked, err := a.CheckForUpdates()
+		if err != nil {
+			return "", err
+		}
+		info = checked
+	}
+	if !info.Available {
+		return "", errors.New("当前已是最新版本")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := updater.Apply(ctx, info, a.updateLog); err != nil {
+		a.updateLog("安装更新失败: %v", err)
+		return "", err
+	}
+	go func() {
+		time.Sleep(1200 * time.Millisecond)
+		if a.ctx != nil {
+			wruntime.Quit(a.ctx)
+		}
+	}()
+	return "正在安装更新，App 将退出并自动重启", nil
+}
+
+func (a *App) cachedUpdateInfo() model.UpdateInfo {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	info := a.updateInfo
+	info.CurrentVersion = a.appVersion
+	return info
+}
+
+// autoCheckUpdates 启动后静默检查一次；发现新版本时通过 app:notice 提示。
+func (a *App) autoCheckUpdates() {
+	if os.Getenv("YKT_UPDATE_DISABLE") == "1" {
+		return
+	}
+	time.Sleep(3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	info, err := updater.Check(ctx, updater.NewOptions(a.appVersion))
+	if err != nil {
+		a.updateLog("自动检查更新失败: %v", err)
+		return
+	}
+	info.CurrentVersion = a.appVersion
+	a.mu.Lock()
+	a.updateInfo = info
+	a.updateChecked = true
+	a.mu.Unlock()
+	if info.Available {
+		a.emit("发现新版本 v" + info.LatestVersion + "，可在「设置 → 更新」中安装")
+	}
+}
+
+// updateLog 把更新过程写入 ~/.ykt/update.log（不含敏感信息）。
+func (a *App) updateLog(format string, args ...any) {
+	line := fmt.Sprintf("[%s] %s\n", time.Now().Format(time.RFC3339), fmt.Sprintf(format, args...))
+	file, err := os.OpenFile(filepath.Join(a.store.HomeDir(), "update.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	_, _ = file.WriteString(line)
+	_ = file.Close()
 }
 
 // Quit 退出 App。

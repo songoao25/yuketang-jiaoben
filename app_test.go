@@ -7,10 +7,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	goruntime "runtime"
 
 	"github.com/songoao25/yuketang-jiaoben/internal/config"
 	"github.com/songoao25/yuketang-jiaoben/internal/model"
@@ -324,4 +328,50 @@ func TestAppConfigSyncedToServer(t *testing.T) {
 
 	// 清理测试产生的日志文件
 	_ = os.WriteFile(filepath.Join(app.store.HomeDir(), "server.log"), nil, 0o600)
+}
+
+// TestAppUpdateCheck 验证更新检查绑定与缓存；不执行真实下载/替换。
+func TestAppUpdateCheck(t *testing.T) {
+	if goruntime.GOOS != "darwin" {
+		t.Skip("更新资产命名按 darwin 测试")
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"tag_name":     "v9.9.9",
+				"body":         "测试版本",
+				"published_at": "2026-11-05T00:00:00Z",
+				"assets": []map[string]any{
+					{"name": "ykt-darwin-arm64.zip", "browser_download_url": "http://" + r.Host + "/download", "size": 100},
+					{"name": "checksums.txt", "browser_download_url": "http://" + r.Host + "/checksums.txt"},
+				},
+			})
+		case "/checksums.txt":
+			_, _ = w.Write([]byte(strings.Repeat("a", 64) + "  ykt-darwin-arm64.zip\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	t.Setenv("YKT_UPDATE_API_URL", server.URL+"/releases/latest")
+	t.Setenv("YKT_UPDATE_DISABLE", "")
+
+	app, _ := newTestApp(t)
+	info, err := app.CheckForUpdates()
+	if err != nil {
+		t.Fatalf("CheckForUpdates 失败: %v", err)
+	}
+	if !info.Available || info.LatestVersion != "9.9.9" || info.Checksum == "" {
+		t.Fatalf("UpdateInfo = %+v", info)
+	}
+	cached, err := app.GetUpdateInfo()
+	if err != nil || cached.LatestVersion != "9.9.9" {
+		t.Fatalf("GetUpdateInfo = %+v, %v", cached, err)
+	}
+
+	t.Setenv("YKT_UPDATE_DISABLE", "1")
+	if _, err := app.CheckForUpdates(); err == nil {
+		t.Fatal("YKT_UPDATE_DISABLE=1 时应拒绝检查")
+	}
 }
