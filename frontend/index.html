@@ -581,6 +581,21 @@
                   </div>
                 </div>
               </section>
+
+              <section class="group" aria-labelledby="groupHelp">
+                <h2 class="group-title" id="groupHelp">帮助</h2>
+                <div class="group-box">
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">新手教程</div>
+                      <div class="row-desc">第一次使用？按步骤完成扩展安装、脚本安装和刷课</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="btn btn-sm" type="button" id="btnShowOnboarding" aria-label="查看新手教程">查看教程</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
 
             <div class="settings-col">
@@ -673,6 +688,30 @@
         <button class="btn btn-danger" type="button" id="modalConfirm" aria-label="确认">确认</button>
       </div>
     </div>
+  </div>
+
+  <div class="onboarding-layer" id="onboardingLayer" hidden>
+    <div class="onboarding-backdrop" id="onboardingBackdrop"></div>
+    <section class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+      <div class="onboarding-head">
+        <span class="about-icon about-icon-app" aria-hidden="true">雨</span>
+        <span class="onboarding-progress mono" id="onboardingProgress">1 / 5</span>
+      </div>
+      <h2 class="onboarding-title" id="onboardingTitle">欢迎使用雨课助手</h2>
+      <div class="onboarding-body">
+        <p id="onboardingText"></p>
+        <ul class="onboarding-points" id="onboardingPoints"></ul>
+        <div id="onboardingExtra"></div>
+      </div>
+      <div class="onboarding-dots" id="onboardingDots" aria-hidden="true"></div>
+      <div class="onboarding-actions">
+        <button class="btn btn-sm onboarding-skip" type="button" id="btnOnboardingSkip" aria-label="跳过新手教程">跳过教程</button>
+        <span class="onboarding-spacer"></span>
+        <button class="btn btn-sm" type="button" id="btnOnboardingBack" aria-label="上一步" hidden>上一步</button>
+        <button class="btn btn-sm btn-primary" type="button" id="btnOnboardingNext" aria-label="下一步">下一步</button>
+      </div>
+      <p class="onboarding-note">以后可在「设置 → 帮助」重新打开本教程</p>
+    </section>
   </div>
 
   <script src="./app.js"></script>

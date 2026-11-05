@@ -375,3 +375,35 @@ func TestAppUpdateCheck(t *testing.T) {
 		t.Fatal("YKT_UPDATE_DISABLE=1 时应拒绝检查")
 	}
 }
+
+// TestAppFinishOnboarding 验证新手引导完成状态会被持久化。
+func TestAppFinishOnboarding(t *testing.T) {
+	app, store := newTestApp(t)
+	state, err := app.FinishOnboarding()
+	if err != nil {
+		t.Fatalf("FinishOnboarding 失败: %v", err)
+	}
+	if !state.Settings.OnboardingDone {
+		t.Fatal("返回状态应标记 onboardingDone")
+	}
+	if !store.LoadSettings().OnboardingDone {
+		t.Fatal("onboardingDone 未持久化")
+	}
+	app2, err := NewApp(store, mustReadScript(t), "1.0.0-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	state2, err := app2.GetState()
+	if err != nil || !state2.Settings.OnboardingDone {
+		t.Fatalf("重新加载后 onboardingDone 丢失: %+v", state2.Settings)
+	}
+}
+
+func mustReadScript(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile("yuketang.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}

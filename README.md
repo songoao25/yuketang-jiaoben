@@ -18,6 +18,7 @@ Tampermonkey 用户脚本 + 原生桌面管理台。脚本负责在雨课堂页�
 - 在 App 内填写 AI API 地址 / Key / 模型 / 格式，打开雨课堂时脚本自动从本机同步
 - 运行日志、脚本版本与指纹、安装状态一目了然
 - 端口、外观（跟随系统 / 浅色 / 深色）、开机自启等设置
+- 首次启动带分步新手教程：从装扩展、装脚本到开始刷课，按按钮走完即可，不需要写代码或开终端
 
 界面设计语言与同一作者的「超星助手」桌面端统一（unslop 方法：中性灰 + 单一系统蓝强调、
 系统设置式分组列表、彩色语义行图标、克制动效，不用渐变/发光/emoji/营销文案）。完整视觉规格见
@@ -93,6 +94,19 @@ git tag v1.1.0 && git push origin v1.1.0
 
 已知限制：App 未签名/未公证，首次分发仍可能被 Gatekeeper 拦截（右键打开）；自动更新只校验 SHA256 与 GitHub TLS，不提供 Sparkle 级签名链；Windows/Linux 的桌面 App 暂未纳入自动发布，CLI 用户可继续 `make cross-cli` 或下载 Release 资产。
 
+## 新手教程（零基础）
+
+第一次打开 App 会自动弹出分步引导，文案只讲「点哪里、会发生什么」，不需要懂代码：
+
+1. 装好浏览器扩展 Tampermonkey（已装可跳过）
+2. 点「安装 / 更新脚本」，在浏览器弹窗里确认安装
+3. 点「打开雨课堂」，登录后进入**课程目录**页
+4. 在网页左下角面板点「开始刷课」
+
+![新手引导](docs/screenshots/onboarding-light.png)
+
+之后想再看：设置 → 帮助 → 新手教程；跳过教程也算完成，不会重复打扰。
+
 ## 界面预览
 
 | 概览（浅色） | 概览（深色） |
@@ -110,6 +124,10 @@ git tag v1.1.0 && git push origin v1.1.0
 | 网页内注入面板（浅色） | 网页内注入面板（深色） |
 | --- | --- |
 | ![面板浅色](docs/screenshots/panel-light.png) | ![面板深色](docs/screenshots/panel-dark.png) |
+
+| 新手引导（浅色） | 新手引导（深色） |
+| --- | --- |
+| ![新手引导](docs/screenshots/onboarding-light.png) | ![新手引导深色](docs/screenshots/onboarding-dark.png) |
 
 ## 已适配雨课堂学校及网址
 

@@ -539,6 +539,143 @@
     });
   }
 
+  /* ───────────── 新手教程（与「超星助手」共用同一套教程组件） ───────────── */
+  var ONBOARDING_STEPS = [
+    {
+      title: '欢迎使用雨课助手',
+      text: '这个应用帮你完成雨课堂的课程任务：装好脚本后，打开课程目录页点「开始刷课」即可。你不需要懂代码，所有操作都在这个窗口和浏览器里点按钮完成。',
+      points: ['按平台真实时长播放视频与音频', '运行中可随时停止，进度以平台为准', 'AI 自动答题是可选项，不配置也能用']
+    },
+    {
+      title: '第一步：装好浏览器扩展',
+      text: '脚本需要 Tampermonkey 才能在网页里运行。在 Chrome、Edge 或 Firefox 的扩展商店搜索 Tampermonkey 安装；Safari 请到 App Store 安装。已经装过就点「下一步」。',
+      action: { label: '打开 Tampermonkey 官网', kind: 'external', url: 'https://www.tampermonkey.net/' }
+    },
+    {
+      title: '第二步：安装雨课助手脚本',
+      text: '点下面的按钮，浏览器会打开安装页并弹出确认窗口，点「安装」即可。之前装过旧版本的会显示「重新安装」。',
+      points: ['如果没看到弹窗，先确认浏览器右上角有 Tampermonkey 图标，再点一次'],
+      action: { label: '安装 / 更新脚本', kind: 'install' }
+    },
+    {
+      title: '第三步：登录并进入课程目录',
+      text: '点「打开雨课堂」，用学校给的账号登录，进入课程后点开「课程目录」页面。脚本会在这里接管视频播放。',
+      points: ['要进课程目录页，不是直接点某一个视频'],
+      action: { label: '打开雨课堂', kind: 'open-site' }
+    },
+    {
+      title: '第四步：在网页里点开始刷课',
+      text: '课程目录页左下角会出现雨课助手面板，点「开始刷课」后视频自动播放；想停就点「停止刷课」。'
+    }
+  ];
+  var onboardingIndex = 0;
+  var onboardingShown = false;
+
+  function onboardingVisible() {
+    var layer = $('#onboardingLayer');
+    return !!(layer && !layer.hidden);
+  }
+
+  function onboardingRender() {
+    var step = ONBOARDING_STEPS[onboardingIndex] || ONBOARDING_STEPS[0];
+    text('#onboardingProgress', (onboardingIndex + 1) + ' / ' + ONBOARDING_STEPS.length);
+    text('#onboardingTitle', step.title);
+    text('#onboardingText', step.text || '');
+    var points = $('#onboardingPoints');
+    if (points) {
+      points.textContent = '';
+      (step.points || []).forEach(function (line) {
+        var item = document.createElement('li');
+        item.textContent = line;
+        points.appendChild(item);
+      });
+    }
+    var extra = $('#onboardingExtra');
+    if (extra) {
+      extra.textContent = '';
+      if (step.action) {
+        var actionButton = document.createElement('button');
+        actionButton.type = 'button';
+        actionButton.className = 'btn btn-sm';
+        actionButton.textContent = step.action.label;
+        actionButton.setAttribute('aria-label', step.action.label);
+        actionButton.addEventListener('click', function () {
+          if (step.action.kind === 'external') openExternal(step.action.url);
+          else if (step.action.kind === 'install') doInstallScript(actionButton);
+          else if (step.action.kind === 'open-site') doOpenYuketang(actionButton);
+        });
+        extra.appendChild(actionButton);
+      }
+    }
+    var dots = $('#onboardingDots');
+    if (dots) {
+      dots.textContent = '';
+      ONBOARDING_STEPS.forEach(function (_, i) {
+        var dot = document.createElement('span');
+        dot.className = 'onboarding-dot' + (i === onboardingIndex ? ' is-active' : '');
+        dots.appendChild(dot);
+      });
+    }
+    var back = $('#btnOnboardingBack');
+    if (back) back.hidden = onboardingIndex === 0;
+    var next = $('#btnOnboardingNext');
+    if (next) next.textContent = onboardingIndex === ONBOARDING_STEPS.length - 1 ? '开始使用' : '下一步';
+  }
+
+  function onboardingOpen() {
+    onboardingIndex = 0;
+    var layer = $('#onboardingLayer');
+    if (!layer) return;
+    layer.hidden = false;
+    onboardingRender();
+    var next = $('#btnOnboardingNext');
+    if (next) window.setTimeout(function () { try { next.focus(); } catch (e) { /* ignore */ } }, 30);
+  }
+
+  function onboardingClose(finished) {
+    var layer = $('#onboardingLayer');
+    if (layer) layer.hidden = true;
+    if (!finished) return;
+    if (MOCK) { toast('教程已完成', 'success'); return; }
+    requireBindings().FinishOnboarding().then(function (next) {
+      if (next) applyState(next);
+      toast('教程已完成，之后可在设置里重新查看', 'success');
+    }).catch(function (err) { toast('保存教程状态失败：' + errMsg(err), 'error'); });
+  }
+
+  function onboardingNext() {
+    if (onboardingIndex >= ONBOARDING_STEPS.length - 1) { onboardingClose(true); return; }
+    onboardingIndex += 1;
+    onboardingRender();
+  }
+
+  function onboardingBack() {
+    if (onboardingIndex <= 0) return;
+    onboardingIndex -= 1;
+    onboardingRender();
+  }
+
+  function maybeShowOnboarding() {
+    if (!state || onboardingShown) return;
+    var layer = $('#onboardingLayer');
+    if (!layer) return;
+    if (MOCK) {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('onboarding') !== '1') return;
+      onboardingShown = true;
+      var step = Number(params.get('step')) || 1;
+      window.setTimeout(function () {
+        onboardingOpen();
+        onboardingIndex = Math.min(Math.max(step - 1, 0), ONBOARDING_STEPS.length - 1);
+        onboardingRender();
+      }, 250);
+      return;
+    }
+    if (state.settings.onboardingDone) return;
+    onboardingShown = true;
+    window.setTimeout(onboardingOpen, 250);
+  }
+
   function fillSettingsForm(force) {
     if (!state) return;
     if (settingsDirty && !force) return;
@@ -574,6 +711,7 @@
     if (!aiDirty) fillAIForm();
     if (!settingsDirty) fillSettingsForm();
     if (currentPage === 'logs') renderLogs();
+    maybeShowOnboarding();
   }
 
   /* ───────────── 日志 ───────────── */
@@ -1005,7 +1143,15 @@
       if (page !== currentPage) setPage(page);
     });
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') { if (modal.open) { event.preventDefault(); closeModal(); } return; }
+      if (onboardingVisible()) {
+        if (event.key === 'Escape') { event.preventDefault(); onboardingClose(true); return; }
+        if (event.key === 'ArrowRight' || event.key === 'Enter') { event.preventDefault(); onboardingNext(); return; }
+        if (event.key === 'ArrowLeft') { event.preventDefault(); onboardingBack(); return; }
+      }
+      if (event.key === 'Escape') {
+        if (modal.open) { event.preventDefault(); closeModal(); }
+        return;
+      }
       trapModalFocus(event);
       var mod = event.metaKey || event.ctrlKey;
       if (!mod || event.altKey || event.shiftKey) return;
@@ -1144,6 +1290,16 @@
     if (checkUpdateBtn) checkUpdateBtn.addEventListener('click', checkUpdates);
     var installUpdateBtn = $('#btnInstallUpdate');
     if (installUpdateBtn) installUpdateBtn.addEventListener('click', installUpdate);
+    var showOnboardingBtn = $('#btnShowOnboarding');
+    if (showOnboardingBtn) showOnboardingBtn.addEventListener('click', onboardingOpen);
+    var onboardingNextBtn = $('#btnOnboardingNext');
+    if (onboardingNextBtn) onboardingNextBtn.addEventListener('click', onboardingNext);
+    var onboardingBackBtn = $('#btnOnboardingBack');
+    if (onboardingBackBtn) onboardingBackBtn.addEventListener('click', onboardingBack);
+    var onboardingSkipBtn = $('#btnOnboardingSkip');
+    if (onboardingSkipBtn) onboardingSkipBtn.addEventListener('click', function () { onboardingClose(true); });
+    var onboardingBackdrop = $('#onboardingBackdrop');
+    if (onboardingBackdrop) onboardingBackdrop.addEventListener('click', function () { onboardingClose(true); });
     $$('[data-external]').forEach(function (btn) {
       btn.addEventListener('click', function () { openExternal(btn.getAttribute('data-external')); });
     });

@@ -54,5 +54,5 @@
 + 2026.11.04 1.0.0  视觉按 unslop 方法与「超星助手」桌面端统一为共享设计语言 v3；详见 docs/DESIGN.md。
 + 2026.11.04 1.0.0  `~/.ykt` 兼容旧 Node CLI 数据：旧 config.json 的 url/port 与旧 state.json 的 openedHash 会在读取时自动迁移。
 + 2026.11.05 1.0.1  管理台更名为「雨课助手」；按 unslop 清单清除脚本面板与界面里的 emoji、糖果色按钮和营销式文案；与「超星助手」统一命名与设计语言
-+ 2026.11.05 1.1.0  新增「设置 → 更新」：基于 GitHub Releases 检查/下载/校验/自替换/重启；新增 release 打包脚本与 GitHub Actions（v* 标签自动发布）
++ 2026.11.05 1.1.0  新增「设置 → 更新」：基于 GitHub Releases 检查/下载/校验/自替换/重启；新增 release 打包脚本与 GitHub Actions（v* 标签自动发布）；新增首次启动分步新手教程（可在设置 → 帮助重看）
 

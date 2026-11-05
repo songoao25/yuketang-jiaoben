@@ -158,11 +158,12 @@ type fileConfig struct {
 
 // settingsJSON 用指针区分「字段缺失」与「显式零值」，用于缺省值填充。
 type settingsJSON struct {
-	Port        *int    `json:"port"`
-	DefaultURL  *string `json:"defaultUrl"`
-	AutoStart   *bool   `json:"autoStart"`
-	SyncEnabled *bool   `json:"syncEnabled"`
-	Appearance  *string `json:"appearance"`
+	Port           *int    `json:"port"`
+	DefaultURL     *string `json:"defaultUrl"`
+	AutoStart      *bool   `json:"autoStart"`
+	SyncEnabled    *bool   `json:"syncEnabled"`
+	Appearance     *string `json:"appearance"`
+	OnboardingDone *bool   `json:"onboardingDone"`
 }
 
 // readRawConfig 读取 config.json 原始字节；文件不存在或不可读返回 nil。
@@ -232,6 +233,9 @@ func (s *Store) LoadSettings() model.Settings {
 	}
 	if raw.Settings.Appearance != nil {
 		settings.Appearance = strings.TrimSpace(*raw.Settings.Appearance)
+	}
+	if raw.Settings.OnboardingDone != nil {
+		settings.OnboardingDone = *raw.Settings.OnboardingDone
 	}
 	return sanitizeSettings(settings)
 }

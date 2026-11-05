@@ -81,11 +81,12 @@ type FeatureConfig struct {
 
 // Settings 是 App / CLI 的本机设置。
 type Settings struct {
-	Port        int    `json:"port"`       // 本地服务端口，限制在 [MinPort, MaxPort]
-	DefaultURL  string `json:"defaultUrl"` // 打开雨课堂时使用的默认地址
-	AutoStart   bool   `json:"autoStart"`  // App 启动时自动启动本地服务
-	SyncEnabled bool   `json:"syncEnabled"`
-	Appearance  string `json:"appearance"` // system | light | dark
+	Port           int    `json:"port"`       // 本地服务端口，限制在 [MinPort, MaxPort]
+	DefaultURL     string `json:"defaultUrl"` // 打开雨课堂时使用的默认地址
+	AutoStart      bool   `json:"autoStart"`  // App 启动时自动启动本地服务
+	SyncEnabled    bool   `json:"syncEnabled"`
+	Appearance     string `json:"appearance"`     // system | light | dark
+	OnboardingDone bool   `json:"onboardingDone"` // 首次启动的新手引导是否已完成
 }
 
 // PortRange 告知前端可选端口区间。

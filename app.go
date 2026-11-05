@@ -361,6 +361,22 @@ func (a *App) CheckForUpdates() (model.UpdateInfo, error) {
 	return info, nil
 }
 
+// FinishOnboarding 记录新手引导已完成，之后不再自动弹出。
+func (a *App) FinishOnboarding() (model.State, error) {
+	a.mu.Lock()
+	settings := a.store.LoadSettings()
+	settings.OnboardingDone = true
+	if err := a.store.SaveSettings(settings); err != nil {
+		state := a.stateLocked()
+		a.mu.Unlock()
+		return state, err
+	}
+	state := a.stateLocked()
+	a.mu.Unlock()
+	a.notify()
+	return state, nil
+}
+
 // InstallUpdate 下载并安排安装更新。成功后 App 会自动退出并重启。
 func (a *App) InstallUpdate() (string, error) {
 	if os.Getenv("YKT_UPDATE_DISABLE") == "1" {

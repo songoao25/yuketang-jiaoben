@@ -58,7 +58,7 @@ func DefaultSettings() model.Settings
 
 - `config.json` 结构：`{"settings":{...},"ai":{...},"features":{...}}`；权限 0600。
 - 写入使用「临时文件 + rename」的原子写；`features` 默认 `false/false`；`settings` 默认：
-  `port=8899, defaultUrl=https://yuketang.cn/, autoStart=true, syncEnabled=true, appearance="system"`。
+  `port=8899, defaultUrl=https://yuketang.cn/, autoStart=true, syncEnabled=true, appearance="system", onboardingDone=false`。
 - 所有读写不得因单个文件损坏而 crash；解析失败返回默认值并在日志中记录（可选）。
 - **兼容旧 Node CLI 数据（QA M4）**：`LoadSettings` 读到旧扁平结构 `{"url": "...", "port": 8900}`（无 `settings` 段）时，把 `url`/`port` 作为迁移来源；`LoadInstallState` 读到旧字段 `openedHash` 时映射为 `hash`（`installed=true`）。迁移只在读取时发生，下一次保存写新结构。
 - `HasConfigSection` 应基于原始 JSON 键判断：文件损坏或键不存在都返回 false。
@@ -206,6 +206,7 @@ func Run(args []string, env Env) int // 返回进程退出码
 | `RevealPath(which string)` | `error` | `home`/`config`/`log` 三类路径，用系统文件管理器定位 |
 | `SetClipboard(text string)` | `error` | 写系统剪贴板 |
 | `OpenExternal(url string)` | `error` | 仅允许 http(s)，用默认浏览器打开 |
+| `FinishOnboarding()` | `model.State` | 记录新手引导已完成并持久化 |
 | `Quit()` | — | 退出 App |
 
 后端在服务状态变化后通过 `runtime.EventsEmit(ctx, "state:changed")` 通知前端；前端同时保留 3 秒轮询兜底。
