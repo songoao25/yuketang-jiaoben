@@ -300,3 +300,8 @@ func newAccountID() (string, error) {
 	}
 	return "acc_" + hex.EncodeToString(buf[:]), nil
 }
+
+// QueueStatePath 返回批量队列快照文件路径（用于崩溃恢复）。
+func (s *Store) QueueStatePath() string {
+	return filepath.Join(s.baseDir, "queue-state.json")
+}

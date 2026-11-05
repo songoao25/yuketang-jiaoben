@@ -92,9 +92,14 @@ func runGUI() {
 		OnStartup:   app.startup,
 		OnShutdown:  app.shutdown,
 		Bind:        []interface{}{app},
+		// 关窗不退出：批量可在后台继续，菜单栏图标负责找回窗口/停止/退出
+		HideWindowOnClose: true,
 		// 防止重复双击启动多个实例抢同一个端口（第二个实例会聚焦已有窗口）
 		SingleInstanceLock: &options.SingleInstanceLock{
 			UniqueId: "yuketang-jiaoben-ykt-manager",
+			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
+				app.showMainWindow()
+			},
 		},
 		Mac: &mac.Options{
 			TitleBar:             mac.TitleBarHiddenInset(),

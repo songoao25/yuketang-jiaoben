@@ -46,6 +46,8 @@ type App struct {
 	batchLogin        *batch.LoginSession
 	batchLoginAccount string
 	batchQueue        *batch.Queue
+	batchLastState    batch.QueueState
+	batchNotified     map[string]bool
 }
 
 // NewApp 创建窗口后端。scriptSource 是内置用户脚本正文。
@@ -570,4 +572,12 @@ func (a *App) installStateLocked() model.InstallState {
 
 func isHTTPURL(raw string) bool {
 	return strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://")
+}
+
+// showMainWindow 从菜单栏/二次启动唤起主窗口。
+func (a *App) showMainWindow() {
+	if a.ctx == nil {
+		return
+	}
+	go wruntime.WindowShow(a.ctx)
 }

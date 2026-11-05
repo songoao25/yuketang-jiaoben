@@ -35,7 +35,25 @@ func (a *App) initBatch() {
 	}
 	a.batchMu.Lock()
 	a.batchStore = store
+	a.batchNotified = map[string]bool{}
 	a.batchMu.Unlock()
+
+	// 崩溃恢复：上次 running/stopping 的队列标记为中断，避免误以为还在跑。
+	persisted, err := batch.LoadQueueState(store.QueueStatePath())
+	if err != nil {
+		a.emit("读取上次批量状态失败：" + err.Error())
+		return
+	}
+	recovered := batch.RecoverQueueState(persisted)
+	if recovered.State == "interrupted" {
+		_ = batch.SaveQueueState(store.QueueStatePath(), recovered)
+		a.batchMu.Lock()
+		a.batchLastState = recovered
+		a.batchMu.Unlock()
+		if a.ctx != nil {
+			wruntime.EventsEmit(a.ctx, "batch:state", recovered)
+		}
+	}
 }
 
 func (a *App) batchStoreOrErr() (*batch.Store, error) {
@@ -266,14 +284,17 @@ func (a *App) ensureBatchQueue() (*batch.Queue, error) {
 	return queue, nil
 }
 
-// recordBatchQueueState 把队列终态写回账号库。
+// recordBatchQueueState 把队列终态写回账号库、落盘并发送系统通知。
 func (a *App) recordBatchQueueState(state batch.QueueState) {
 	a.batchMu.Lock()
 	store := a.batchStore
+	a.batchLastState = state
 	a.batchMu.Unlock()
 	if store == nil {
 		return
 	}
+	_ = batch.SaveQueueState(store.QueueStatePath(), state)
+
 	for _, item := range state.Items {
 		var result string
 		switch item.Status {
@@ -289,7 +310,64 @@ func (a *App) recordBatchQueueState(state batch.QueueState) {
 			continue
 		}
 		_ = store.SetLastRun(item.AccountID, result, item.Message)
+		a.notifyBatchItem(item, result)
 	}
+	if state.State == "done" {
+		a.notifyBatchDone(state)
+	}
+}
+
+// notifyBatchItem 每个账号终态只通知一次。
+func (a *App) notifyBatchItem(item batch.QueueItem, result string) {
+	key := item.AccountID + ":" + string(item.Status) + ":" + item.EndedAt
+	a.batchMu.Lock()
+	if a.batchNotified == nil {
+		a.batchNotified = map[string]bool{}
+	}
+	if a.batchNotified[key] {
+		a.batchMu.Unlock()
+		return
+	}
+	a.batchNotified[key] = true
+	a.batchMu.Unlock()
+
+	switch result {
+	case "needs_login":
+		notifyUser("需要重新登录", "账号「"+item.Name+"」登录态失效，请打开雨课助手重新登录")
+	case "failed":
+		notifyUser("账号运行失败", "「"+item.Name+"」："+item.Message)
+	case "cancelled":
+		notifyUser("账号已取消", "「"+item.Name+"」未完成")
+	}
+}
+
+// notifyBatchDone 整批结束时只通知一次。
+func (a *App) notifyBatchDone(state batch.QueueState) {
+	key := "done:" + state.StartedAt
+	a.batchMu.Lock()
+	if a.batchNotified == nil {
+		a.batchNotified = map[string]bool{}
+	}
+	if a.batchNotified[key] {
+		a.batchMu.Unlock()
+		return
+	}
+	a.batchNotified[key] = true
+	a.batchMu.Unlock()
+
+	okCount, failCount, needCount := 0, 0, 0
+	for _, item := range state.Items {
+		switch item.Status {
+		case batch.RunOK:
+			okCount++
+		case batch.RunFailed:
+			failCount++
+		case batch.RunNeedsLogin:
+			needCount++
+		}
+	}
+	message := fmt.Sprintf("成功 %d，失败 %d，需登录 %d", okCount, failCount, needCount)
+	notifyUser("批量运行结束", message)
 }
 
 // StartBatch 开始顺序批量运行（只运行已登录账号；未登录会提示先登录）。
@@ -322,6 +400,10 @@ func (a *App) StartBatch(ids []string) (batch.QueueState, error) {
 		}
 		return batch.QueueState{}, errors.New("没有选中可运行的账号")
 	}
+	a.batchMu.Lock()
+	a.batchNotified = map[string]bool{}
+	a.batchLastState = batch.QueueState{State: "idle"}
+	a.batchMu.Unlock()
 	if err := queue.Start(accounts); err != nil {
 		return batch.QueueState{}, err
 	}
@@ -339,11 +421,20 @@ func (a *App) StopBatch() batch.QueueState {
 	return queue.Snapshot()
 }
 
-// GetBatchState 返回批量队列快照。
+// GetBatchState 返回批量队列快照；没有活动队列时回退到上次落盘状态。
 func (a *App) GetBatchState() batch.QueueState {
 	queue, err := a.ensureBatchQueue()
 	if err != nil {
 		return batch.QueueState{State: "idle"}
 	}
-	return queue.Snapshot()
+	snapshot := queue.Snapshot()
+	if snapshot.State != "idle" {
+		return snapshot
+	}
+	a.batchMu.Lock()
+	defer a.batchMu.Unlock()
+	if a.batchLastState.State != "" {
+		return a.batchLastState
+	}
+	return batch.QueueState{State: "idle"}
 }
