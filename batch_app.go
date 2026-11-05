@@ -277,6 +277,10 @@ func (a *App) ensureBatchQueue() (*batch.Queue, error) {
 	queue.SetPacing(func(completed int) time.Duration {
 		return time.Duration(30+rand.Intn(61)) * time.Second
 	})
+	// 运行失败最多重试 1 次（登录失效不重试）；重试前等 20 秒。
+	queue.SetRetry(1, func(attempt int) time.Duration {
+		return 20 * time.Second
+	})
 
 	a.batchMu.Lock()
 	a.batchQueue = queue

@@ -53,21 +53,37 @@ type Runner interface {
 
 // Queue 顺序执行账号任务，默认并发 1；账号之间可配置停顿。
 type Queue struct {
-	mu       sync.Mutex
-	runner   Runner
-	onEvent  func(QueueState)
-	onLog    func(accountID, level, text string)
-	state    QueueState
-	cancel   context.CancelFunc
-	pacing   func(completed int) time.Duration
-	stopping bool
+	mu        sync.Mutex
+	runner    Runner
+	onEvent   func(QueueState)
+	onLog     func(accountID, level, text string)
+	state     QueueState
+	cancel    context.CancelFunc
+	pacing    func(completed int) time.Duration
+	retries   int
+	retryWait func(attempt int) time.Duration
+	stopping  bool
 }
 
 // NewQueue 创建队列；onEvent 可为 nil。
 func NewQueue(runner Runner, onEvent func(QueueState), onLog func(accountID, level, text string)) *Queue {
 	queue := &Queue{runner: runner, onEvent: onEvent, onLog: onLog, state: QueueState{State: "idle"}}
 	queue.pacing = func(completed int) time.Duration { return 0 }
+	queue.retries = 0
+	queue.retryWait = func(attempt int) time.Duration { return 15 * time.Second }
 	return queue
+}
+
+// SetRetry 设置单账号失败重试次数与等待时间（0 次表示不重试）。
+// 登录失效（needs_login）不重试，避免反复触发风控。
+func (q *Queue) SetRetry(attempts int, wait func(attempt int) time.Duration) {
+	if attempts < 0 {
+		attempts = 0
+	}
+	q.retries = attempts
+	if wait != nil {
+		q.retryWait = wait
+	}
 }
 
 // SetPacing 设置账号之间的停顿（测试可设为 0）。
@@ -203,9 +219,34 @@ func (q *Queue) run(ctx context.Context, accounts []Account) {
 		q.emit(snapshot)
 		q.log(account.ID, "info", "开始处理账号："+account.Name)
 
-		outcome := q.runner.Run(ctx, account, func(level, text string) {
-			q.log(account.ID, level, text)
-		})
+		var outcome RunOutcome
+		for attempt := 0; attempt <= q.retries; attempt++ {
+			if attempt > 0 {
+				wait := time.Duration(0)
+				if q.retryWait != nil {
+					wait = q.retryWait(attempt)
+				}
+				if wait > 0 {
+					q.log(account.ID, "info", fmt.Sprintf("第 %d 次重试前等待 %s", attempt, wait.Round(time.Second)))
+					select {
+					case <-ctx.Done():
+						outcome = RunOutcome{Err: ctx.Err()}
+					case <-time.After(wait):
+					}
+				}
+				if ctx.Err() != nil {
+					outcome = RunOutcome{Err: ctx.Err()}
+					break
+				}
+				q.log(account.ID, "info", fmt.Sprintf("重试第 %d/%d 次：%s", attempt, q.retries, account.Name))
+			}
+			outcome = q.runner.Run(ctx, account, func(level, text string) {
+				q.log(account.ID, level, text)
+			})
+			if outcome.NeedsLogin || outcome.Err == nil || ctx.Err() != nil {
+				break
+			}
+		}
 
 		ended := time.Now().Format(time.RFC3339)
 		var status RunStatus

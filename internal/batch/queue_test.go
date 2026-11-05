@@ -11,17 +11,31 @@ import (
 )
 
 type fakeRunner struct {
-	mu       sync.Mutex
-	order    []string
-	outcomes map[string]RunOutcome
-	delay    time.Duration
-	blockOn  chan struct{}
+	mu        sync.Mutex
+	order     []string
+	outcomes  map[string]RunOutcome
+	sequences map[string][]RunOutcome
+	calls     map[string]int
+	delay     time.Duration
+	blockOn   chan struct{}
 }
 
 func (f *fakeRunner) Run(ctx context.Context, account Account, logf func(level, text string)) RunOutcome {
 	f.mu.Lock()
 	f.order = append(f.order, account.ID)
+	if f.calls == nil {
+		f.calls = map[string]int{}
+	}
+	call := f.calls[account.ID]
+	f.calls[account.ID] = call + 1
 	outcome := f.outcomes[account.ID]
+	if sequence, ok := f.sequences[account.ID]; ok {
+		if call < len(sequence) {
+			outcome = sequence[call]
+		} else if len(sequence) > 0 {
+			outcome = sequence[len(sequence)-1]
+		}
+	}
 	f.mu.Unlock()
 	if logf != nil {
 		logf("info", "fake run "+account.ID)
@@ -169,5 +183,51 @@ func TestQueueWithYKTRunnerNeedsLogin(t *testing.T) {
 	snapshot := waitQueueState(t, queue, "done", 20*time.Second)
 	if len(snapshot.Items) != 1 || snapshot.Items[0].Status != RunNeedsLogin {
 		t.Fatalf("应为 needs_login：%+v", snapshot)
+	}
+}
+
+func TestQueueRetriesFailedAccount(t *testing.T) {
+	runner := &fakeRunner{
+		sequences: map[string][]RunOutcome{
+			"r1": {{Err: context.DeadlineExceeded}, {}},
+		},
+	}
+	queue := NewQueue(runner, nil, nil)
+	queue.SetRetry(1, func(int) time.Duration { return 0 })
+	queue.SetPacing(func(int) time.Duration { return 0 })
+	if err := queue.Start([]Account{{ID: "r1", Name: "重试账号"}}); err != nil {
+		t.Fatalf("开始失败：%v", err)
+	}
+	snapshot := waitQueueState(t, queue, "done", 5*time.Second)
+	if len(snapshot.Items) != 1 || snapshot.Items[0].Status != RunOK {
+		t.Fatalf("第二次应成功：%+v", snapshot)
+	}
+	if runner.calls["r1"] != 2 {
+		t.Fatalf("应调用两次，实际 %d", runner.calls["r1"])
+	}
+}
+
+func TestQueueRetryExhaustedAndNoRetryOnLogin(t *testing.T) {
+	runner := &fakeRunner{
+		sequences: map[string][]RunOutcome{
+			"e1": {{Err: context.DeadlineExceeded}, {Err: context.DeadlineExceeded}},
+			"e2": {{NeedsLogin: true}, {}},
+		},
+	}
+	queue := NewQueue(runner, nil, nil)
+	queue.SetRetry(1, func(int) time.Duration { return 0 })
+	queue.SetPacing(func(int) time.Duration { return 0 })
+	if err := queue.Start([]Account{{ID: "e1", Name: "失败账号"}, {ID: "e2", Name: "需登录"}}); err != nil {
+		t.Fatalf("开始失败：%v", err)
+	}
+	snapshot := waitQueueState(t, queue, "done", 5*time.Second)
+	if snapshot.Items[0].Status != RunFailed {
+		t.Fatalf("两次失败应为 failed：%+v", snapshot.Items[0])
+	}
+	if snapshot.Items[1].Status != RunNeedsLogin {
+		t.Fatalf("需登录应为 needs_login：%+v", snapshot.Items[1])
+	}
+	if runner.calls["e2"] != 1 {
+		t.Fatalf("needs_login 不应重试，实际调用 %d", runner.calls["e2"])
 	}
 }
