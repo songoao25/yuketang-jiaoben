@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "ykt",
+  "outputfilename": "ykt",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "songsong",
+    "email": "songoao25@gmail.com"
+  },
+  "info": {
+    "companyName": "yuketang-jiaoben",
+    "productName": "雨课助手",
+    "productVersion": "1.0.1",
+    "copyright": "GPL-3.0",
+    "comments": "本机管理台：启动服务、安装脚本、配置 AI 答题"
+  }
+}

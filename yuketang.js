@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         雨课堂刷课助手
+// @name         雨课助手
 // @namespace    http://tampermonkey.net/
-// @version      3.0.6
+// @version      3.0.8
 // @description  针对雨课堂视频进行自动播放，配置AI自动答题
 // @author       风之子
 // @license      GPL3
@@ -11,6 +11,7 @@
 // @icon         http://yuketang.cn/favicon.ico
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
+// @connect      127.0.0.1
 // @connect      api.openai.com
 // @connect      api.moonshot.cn
 // @connect      api.deepseek.com
@@ -30,15 +31,21 @@
 
   // ---- 脚本配置，用户可修改 ----
   const Config = {
-    version: '3.0.6',     // 版本号
+    version: '3.0.8',     // 版本号
     playbackRate: 2,      // 视频播放倍速
     pptInterval: 3000,    // ppt翻页间隔
+    // 本机管理台（ykt App / CLI）配置同步：服务只监听 127.0.0.1，端口范围与 App 一致
+    appSync: {
+      ports: [8899, 8900, 8901, 8902, 8903, 8904, 8905, 8906, 8907, 8908, 8909, 8910],
+      timeout: 400,
+    },
     storageKeys: {        // 使用者勿动
       progress: '[雨课堂脚本]刷课进度信息',
       ai: 'ykt_ai_conf',
       proClassCount: 'pro_lms_classCount',
       feature: 'ykt_feature_conf', // 是否开启AI作答/自动评论
-      pendingAutoStart: 'ykt_pending_auto_start'
+      pendingAutoStart: 'ykt_pending_auto_start',
+      appPort: 'ykt_app_port'      // 上次成功同步配置的本机端口
     }
   };
 
@@ -251,6 +258,125 @@
     },
   };
 
+  // ---- 本机管理台配置同步 ----
+  // 打开雨课堂页面时，尝试从本机 ykt App / CLI 的本地服务（127.0.0.1:8899~8910）拉取
+  // AI 与功能配置。未启动本地服务、同步关闭或本机尚未保存过配置时，静默回退到网页面板设置。
+  const AppSync = {
+    endpoint(port) {
+      return `http://127.0.0.1:${port}/api/config`;
+    },
+    cachedPort() {
+      const value = Number(localStorage.getItem(Config.storageKeys.appPort));
+      return Config.appSync.ports.includes(value) ? value : 0;
+    },
+    rememberPort(port) {
+      try {
+        localStorage.setItem(Config.storageKeys.appPort, String(port));
+      } catch (_) { /* 忽略隐私模式下的写入失败 */ }
+    },
+    candidatePorts() {
+      const cached = this.cachedPort();
+      if (!cached) return Config.appSync.ports.slice();
+      return [cached].concat(Config.appSync.ports.filter(port => port !== cached));
+    },
+    fetchPort(port) {
+      return new Promise(resolve => {
+        if (typeof GM_xmlhttpRequest !== 'function') return resolve(null);
+        let settled = false;
+        const finish = value => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        try {
+          GM_xmlhttpRequest({
+            method: 'GET',
+            url: this.endpoint(port),
+            headers: { 'X-YKT-Client': 'userscript' },
+            timeout: Config.appSync.timeout,
+            onload: res => {
+              if (res.status !== 200) return finish(null);
+              try {
+                const data = JSON.parse(res.responseText);
+                finish(data && data.ok && data.app === 'ykt' ? data : null);
+              } catch (_) {
+                finish(null);
+              }
+            },
+            onerror: () => finish(null),
+            ontimeout: () => finish(null),
+          });
+        } catch (_) {
+          finish(null);
+        }
+      });
+    },
+    fetchFromApp() {
+      const ports = this.candidatePorts();
+      return new Promise(resolve => {
+        let pending = ports.length;
+        let done = false;
+        ports.forEach(port => {
+          this.fetchPort(port).then(data => {
+            if (done) return;
+            if (data) {
+              done = true;
+              this.rememberPort(port);
+              resolve({ data, port });
+              return;
+            }
+            pending -= 1;
+            if (pending === 0) resolve(null);
+          });
+        });
+      });
+    },
+    // 按段覆盖：只有本机保存过 "ai" / "features" 段时才覆盖对应网页设置，
+    // 避免「只配了 AI」时把网页面板里的功能开关重置为 false。
+    apply({ data }) {
+      if (!data.sync || !data.sync.enabled) return [];
+      const applied = [];
+      const hasAI = data.hasAI !== undefined ? Boolean(data.hasAI) : Boolean(data.configured);
+      const hasFeatures = data.hasFeatures !== undefined ? Boolean(data.hasFeatures) : Boolean(data.configured);
+      if (hasAI) {
+        const ai = data.ai || {};
+        const saved = Store.getAIConf();
+        Store.setAIConf({
+          url: ai.url || saved.url,
+          key: ai.key || saved.key,
+          model: ai.model || saved.model,
+          apiFormat: ai.apiFormat || saved.apiFormat,
+          authMethod: ai.authMethod || saved.authMethod,
+        });
+        applied.push('AI');
+      }
+      if (hasFeatures) {
+        Store.setFeatureConf({
+          autoAI: Boolean(data.features && data.features.autoAI),
+          autoComment: Boolean(data.features && data.features.autoComment),
+        });
+        applied.push('功能开关');
+      }
+      if (applied.length && panel && typeof panel.refreshSettings === 'function') panel.refreshSettings();
+      return applied;
+    },
+    async sync() {
+      const result = await this.fetchFromApp();
+      if (!result) return false;
+      if (!result.data.sync || !result.data.sync.enabled) {
+        if (panel) panel.log('本机配置同步已关闭，继续使用网页面板设置');
+        return false;
+      }
+      if (!result.data.configured) {
+        if (panel) panel.log('本机 App 尚未保存配置，继续使用网页面板设置');
+        return false;
+      }
+      const applied = this.apply(result);
+      if (panel && applied.length) panel.log(`已从本机 App 同步配置：${applied.join('与')}（端口 ${result.port}）`);
+      return applied.length > 0;
+    },
+  };
+
   // ---- UI 面板 ----
   function createPanel() {
     const iframe = document.createElement('iframe');
@@ -260,11 +386,11 @@
     iframe.style.width = '520px';
     iframe.style.height = '340px';
     iframe.style.zIndex = '999999';
-    iframe.style.border = '1px solid #a3a3a3';
-    iframe.style.borderRadius = '10px';
-    iframe.style.background = '#fff';
+    iframe.style.border = 'none';
+    iframe.style.borderRadius = '12px';
+    iframe.style.background = 'transparent';
     iframe.style.overflow = 'hidden';
-    iframe.style.boxShadow = '6px 4px 17px 2px #000000';
+    iframe.style.boxShadow = '0 12px 32px rgba(0, 0, 0, 0.22)';
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('id', 'ykt-helper-iframe');
     iframe.setAttribute('allowtransparency', 'true');
@@ -277,290 +403,302 @@
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open();
     doc.write(`
-                  <style>
-              /* 全局重置 */
-              html, body { overflow: hidden; margin: 0; padding: 0; font-family: "Segoe UI", "PingFang SC", Avenir, Helvetica, Arial, sans-serif; color: #4a4a4a; background: transparent; }
+      <style>
+        :root {
+          color-scheme: light dark;
+          --panel-bg: #ffffff;
+          --panel-bg-2: #f5f5f7;
+          --label: #1d1d1f;
+          --label-2: #6e6e73;
+          --separator: rgba(0, 0, 0, 0.08);
+          --accent: #007aff;
+          --accent-hover: #0a84ff;
+          --danger: #d70015;
+          --danger-soft: rgba(215, 0, 21, 0.10);
+          --control: rgba(0, 0, 0, 0.05);
+          --control-hover: rgba(0, 0, 0, 0.09);
+          --focus: rgba(0, 122, 255, 0.32);
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --panel-bg: #2c2c2e;
+            --panel-bg-2: #232326;
+            --label: #f5f5f7;
+            --label-2: #98989d;
+            --separator: rgba(255, 255, 255, 0.09);
+            --accent: #0a84ff;
+            --accent-hover: #3d9bff;
+            --danger: #ff6b60;
+            --danger-soft: rgba(255, 69, 58, 0.14);
+            --control: rgba(255, 255, 255, 0.08);
+            --control-hover: rgba(255, 255, 255, 0.13);
+            --focus: rgba(10, 132, 255, 0.45);
+          }
+        }
+        html, body {
+          overflow: hidden;
+          margin: 0;
+          padding: 0;
+          font: 12px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+          color: var(--label);
+          background: transparent;
+          -webkit-font-smoothing: antialiased;
+        }
 
-              /* 主容器 */
-              .mini-basic {
-                position: absolute;
-                inset: 0;
-                background: #3a7afe;
-                color: white;
-                height: 100%;
-                width: 100%;
-                min-height: 42px;
-                min-width: 42px;
-                border-radius: 10px;
-                text-align: center;
-                line-height: 1;
-                z-index: 1000000;
-                cursor: pointer;
-                display: none;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-                box-shadow: 0 4px 12px rgba(0,0,0,0);
-              }
-              .mini-basic.show {
-                display: flex;
-              }
+        .mini-basic {
+          position: absolute;
+          inset: 0;
+          background: var(--accent);
+          color: #ffffff;
+          height: 100%;
+          width: 100%;
+          min-height: 42px;
+          min-width: 42px;
+          border-radius: 12px;
+          text-align: center;
+          line-height: 1;
+          z-index: 1000000;
+          cursor: pointer;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 500;
+        }
+        .mini-basic.show { display: flex; }
 
-              /* 面板主容器 */
-              .panel {
-                width: 100%;
-                height: 100%;
-                background: white;
-                border-radius: 10px;
-                position: relative;
-                overflow: hidden;
-              }
+        .panel {
+          width: 100%;
+          height: 100%;
+          background: var(--panel-bg);
+          border: 1px solid var(--separator);
+          border-radius: 12px;
+          position: relative;
+          overflow: hidden;
+        }
 
-              /* 标题栏 */
-              .header {
-                text-align: center;
-                height: 40px;
-                background: #f7f7f7;
-                color: #000;
-                font-size: 18px;
-                line-height: 40px;
-                border-radius: 10px 10px 0 0;
-                border-bottom: 2px solid #eee;
-                cursor: move;
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0 10px;
-              }
-              .tools ul {
-                margin: 0;
-                padding: 0;
-                list-style: none;
-                display: flex;
-                gap: 5px;
-              }
-              .tools li {
-                display: inline-block;
-                cursor: pointer;
-                font-size: 14px;
-                padding: 0 5px;
-              }
+        .header {
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 6px 0 12px;
+          background: var(--panel-bg-2);
+          border-bottom: 1px solid var(--separator);
+          cursor: move;
+          user-select: none;
+        }
+        .header-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--label);
+        }
+        .tools ul {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+          display: flex;
+          gap: 2px;
+        }
+        .tools li {
+          width: 24px;
+          height: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 5px;
+          color: var(--label-2);
+          font-size: 13px;
+          line-height: 1;
+          cursor: pointer;
+        }
+        .tools li:hover { background: var(--control); color: var(--label); }
 
-              /* 内容区 */
-              .body {
-                font-weight: normal;
-                font-size: 13px;
-                line-height: 22px;
-                height: calc(100% - 85px);
-                overflow-y: auto;
-                padding: 6px 8px;
-                box-sizing: border-box;
-              }
+        .body {
+          height: calc(100% - 86px);
+          overflow-y: auto;
+          padding: 10px 12px;
+          box-sizing: border-box;
+        }
+        .info { margin: 0; padding: 0; list-style: none; }
+        .info li {
+          margin: 0 0 5px;
+          font-size: 12px;
+          line-height: 1.65;
+          color: var(--label-2);
+          word-break: break-word;
+        }
+        .info li strong { color: var(--label); font-weight: 500; }
+        .info hr { border: 0; border-top: 1px solid var(--separator); margin: 10px 0; }
 
-              .info {
-                margin: 0;
-                padding: 0;
-                list-style: none;
-              }
-              .info li {
-                margin-bottom: 4px;
-                color: #333;
-              }
+        #settings {
+          display: none;
+          position: absolute;
+          top: 38px;
+          left: 0;
+          width: 100%;
+          height: calc(100% - 38px);
+          background: var(--panel-bg);
+          z-index: 99;
+          padding: 12px 14px;
+          box-sizing: border-box;
+          overflow-y: auto;
+        }
+        .form-item { margin-bottom: 10px; }
+        .form-item label {
+          display: block;
+          margin-bottom: 4px;
+          font-size: 12px;
+          color: var(--label-2);
+        }
+        .form-item input[type="text"],
+        .form-item input[type="password"],
+        .form-item select {
+          width: 100%;
+          height: 28px;
+          padding: 0 8px;
+          border: 1px solid var(--separator);
+          border-radius: 6px;
+          font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+          color: var(--label);
+          background: var(--panel-bg);
+          box-sizing: border-box;
+          outline: none;
+        }
+        .form-item input:focus,
+        .form-item select:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--focus);
+        }
+        .form-item .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          color: var(--label);
+          cursor: pointer;
+        }
+        .form-item .checkbox-label input { margin: 0; accent-color: var(--accent); }
 
-              /* 设置面板 */
-              #settings {
-                display: none;
-                position: absolute;
-                top: 40px;
-                left: 0;
-                width: 100%;
-                height: calc(100% - 40px);
-                background: white;
-                z-index: 99;
-                padding: 15px;
-                box-sizing: border-box;
-                overflow-y: auto;
-              }
+        .settings-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px solid var(--separator);
+        }
 
-              /* 表单项 */
-              .form-item {
-                margin-bottom: 15px;
-              }
-              .form-item label {
-                display: block;
-                margin-bottom: 5px;
-                font-size: 12px;
-                color: #333;
-              }
-              .form-item input[type="text"],
-              .form-item input[type="password"] {
-                width: 100%;
-                padding: 8px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 12px;
-                box-sizing: border-box;
-              }
+        .footer {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 48px;
+          background: var(--panel-bg-2);
+          border-top: 1px solid var(--separator);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 0 10px;
+          box-sizing: border-box;
+        }
+        button {
+          font: 500 12px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+          height: 28px;
+          padding: 0 11px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background-color 120ms ease, color 120ms ease;
+        }
+        button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+        #btn-start, #save_settings { background: var(--accent); color: #ffffff; }
+        #btn-start:hover, #save_settings:hover { background: var(--accent-hover); }
+        #btn-stop, #btn-reload, #btn-setting, #close_settings {
+          background: var(--control);
+          color: var(--label);
+        }
+        #btn-stop:hover, #btn-reload:hover, #btn-setting:hover, #close_settings:hover {
+          background: var(--control-hover);
+        }
+        #btn-clear { background: transparent; color: var(--danger); }
+        #btn-clear:hover { background: var(--danger-soft); }
+      </style>
 
-              /* 复选框标签优化：避免“启用”跑到右边 */
-              .form-item .checkbox-label {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 12px;
-                cursor: pointer;
-              }
-              .form-item .checkbox-label input[type="checkbox"] {
-                margin: 0;
-                width: auto;
-              }
-
-              /* 底部按钮栏 */
-              .footer {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                width: 100%;
-                background: #f7f7f7;
-                color: #c5c5c5;
-                font-size: 13px;
-                line-height: 25px;
-                border-radius: 0 0 10px 10px;
-                border-bottom: 2px solid #eee;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding: 6px 0;
-                gap: 10px;
-              }
-              .footer button {
-                border: none;
-                border-radius: 6px;
-                color: white;
-                cursor: pointer;
-                padding: 6px 12px;
-                font-size: 12px;
-                transition: all 0.2s ease;
-              }
-              #btn-start {
-                background-color: #1677ff;
-              }
-              #btn-start:hover {
-                background-color: #f6ff00;
-                color: black;
-              }
-              #btn-clear {
-                background-color: #ff4d4f;
-              }
-              #btn-setting {
-                background-color: #52c41a;
-              }
-              #btn-stop {
-                background-color: #8c8c8c;
-              }
-              #btn-reload {
-                background-color: #fa8c16;
-              }
-
-              /* 设置页底部按钮 */
-              .settings-footer {
-                text-align: center;
-                margin-top: 12px;
-                display: flex;
-                justify-content: center;
-                gap: 10px;
-              }
-              .settings-footer button {
-                padding: 6px 15px;
-                font-size: 12px;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-              }
-              #save_settings {
-                background-color: #1677ff;
-                color: white;
-              }
-              #close_settings {
-                background-color: #999;
-                color: white;
-              }
-            </style>
-
-            <div class="mini-basic" id="mini-basic">展开</div>
-            <div class="panel" id="panel">
-              <div class="header" id="header">
-                雨课堂刷课助手
-                <div class='tools'>
-                  <ul>
-                    <li class='minimality' id="minimality">_</li>
-                    <li class='question' id="question">?</li>
-                  </ul>
-                </div>
-              </div>
-              <div class="body">
-                <ul class="info" id="info">
-                  <li>⭐ 脚本支持：雨课堂所有版本</li>
-                  <li>🤖 <strong>支持模型：</strong>DeepSeek、Kimi(Moonshot)、通义千问、OpenAI、Claude(Anthropic)</li>
-                  <li>📢 <strong>使用必读：</strong>自动答题需先点击<span style="color:green">[AI配置]</span>开启并填入API Key</li>
-                  <li>🚀 配置完成后，点击<span style="color:blue">[开始刷课]</span>即可启动视频与作业挂机</li>
-                  <li>🤝 脚本还有很多不足，欢迎各位一起完善代码</li>
-                  <hr>
-                </ul>
-              </div>
-              <div id="settings">
-                <div class="form-item">
-                  <label>API URL:</label>
-                  <input type="text" id="ai_url" placeholder="https://api.deepseek.com/chat/completions">
-                </div>
-                <div class="form-item">
-                  <label>API KEY:</label>
-                  <input type="password" id="ai_key" placeholder="sk-xxxxxxxx">
-                </div>
-                <div class="form-item">
-                  <label>Model Name:</label>
-                  <input type="text" id="ai_model" placeholder="deepseek-chat">
-                </div>
-                <div class="form-item">
-                  <label>API Format:</label>
-                  <select id="ai_format" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;">
-                    <option value="openai">OpenAI Format (Chat Completions)</option>
-                    <option value="anthropic">Anthropic Format (Messages API)</option>
-                  </select>
-                </div>
-                <div class="form-item">
-                  <label>Auth Method:</label>
-                  <select id="auth_method" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:12px;">
-                    <option value="bearer">Bearer Token (Authorization: Bearer)</option>
-                    <option value="x-api-key">X-API-Key Header</option>
-                  </select>
-                </div>
-                <div class="form-item">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="feature_auto_ai">
-                    用 AI 自动作答（作业/题目）
-                  </label>
-                </div>
-                <div class="form-item">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="feature_auto_comment">
-                    用批量区图文/讨论自动回复
-                  </label>
-                </div>
-                <div class="settings-footer">
-                  <button id="save_settings">保存并关闭</button>
-                  <button id="close_settings">取消</button>
-                </div>
-              </div>
-              <div class="footer">
-                <button id="btn-setting">AI配置</button>
-                <button id="btn-clear">清除缓存</button>
-                <button id="btn-start">开始刷课</button>
-                <button id="btn-stop">停止刷课</button>
-                <button id="btn-reload">重新加载</button>
-              </div>
-            </div>
+      <div class="mini-basic" id="mini-basic">展开</div>
+      <div class="panel" id="panel">
+        <div class="header" id="header">
+          <span class="header-title">雨课助手</span>
+          <div class="tools">
+            <ul>
+              <li class="minimality" id="minimality" title="收起">_</li>
+              <li class="question" id="question" title="关于">?</li>
+            </ul>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="info" id="info">
+            <li><strong>支持范围</strong> 雨课堂全部学习页（v2 / pro-lms / ai-workspace）</li>
+            <li><strong>支持模型</strong> DeepSeek、Kimi、通义千问、OpenAI、Claude</li>
+            <li><strong>自动答题</strong> 先在「AI 配置」中填写 API Key</li>
+            <li><strong>开始刷课</strong> 进入课程目录页后点击「开始刷课」</li>
+            <hr>
+          </ul>
+        </div>
+        <div id="settings">
+          <div class="form-item">
+            <label>API 地址</label>
+            <input type="text" id="ai_url" placeholder="https://api.deepseek.com/chat/completions">
+          </div>
+          <div class="form-item">
+            <label>API Key</label>
+            <input type="password" id="ai_key" placeholder="sk-xxxxxxxx">
+          </div>
+          <div class="form-item">
+            <label>模型</label>
+            <input type="text" id="ai_model" placeholder="deepseek-chat">
+          </div>
+          <div class="form-item">
+            <label>接口格式</label>
+            <select id="ai_format">
+              <option value="openai">OpenAI 兼容（Chat Completions）</option>
+              <option value="anthropic">Anthropic Messages</option>
+            </select>
+          </div>
+          <div class="form-item">
+            <label>认证方式</label>
+            <select id="auth_method">
+              <option value="bearer">Bearer Token</option>
+              <option value="x-api-key">X-API-Key</option>
+            </select>
+          </div>
+          <div class="form-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="feature_auto_ai">
+              用 AI 自动作答（作业/题目）
+            </label>
+          </div>
+          <div class="form-item">
+            <label class="checkbox-label">
+              <input type="checkbox" id="feature_auto_comment">
+              图文讨论自动回复
+            </label>
+          </div>
+          <div class="settings-footer">
+            <button id="close_settings">取消</button>
+            <button id="save_settings">保存并关闭</button>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="btn-setting">AI 配置</button>
+          <button id="btn-clear">清除缓存</button>
+          <button id="btn-start">开始刷课</button>
+          <button id="btn-stop">停止刷课</button>
+          <button id="btn-reload">重新加载</button>
+        </div>
+      </div>
     `);
     doc.close();
 
@@ -647,7 +785,7 @@
     ui.miniBasic.addEventListener('click', exitMini);
 
     ui.question.addEventListener('click', () => {
-      window.parent.alert('作者：niuwh.cn（重构版 by Codex）');
+      window.parent.alert('雨课助手 · 问题反馈与更新：github.com/Niuwh/yuketang-jiaoben');
     });
 
     const log = message => {
@@ -659,14 +797,14 @@
 
     const warn = message => {
       const li = doc.createElement('li');
-      li.innerText = '⚠️警告：' + message;
+      li.innerText = '警告：' + message;
       ui.info.appendChild(li);
       if (ui.info.lastElementChild) ui.info.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
     };
 
     const error = message => {
       const li = doc.createElement('li');
-      li.innerText = '🚨报错：' + message;
+      li.innerText = '报错：' + message;
       ui.info.appendChild(li);
       if (ui.info.lastElementChild) ui.info.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
     };
@@ -710,7 +848,7 @@
       };
       Store.setFeatureConf(featureConf);
       ui.settings.style.display = 'none';
-      log('✅ AI 配置已保存');
+      log('AI 配置已保存');
     };
 
     ui.btnClear.onclick = () => {
@@ -763,6 +901,11 @@
       resetStartButton(text = '开始刷课') {
         ui.btnStart.innerText = text;
         if (text !== '刷课中...') running = false;
+      },
+      refreshSettings() {
+        if (!ui.settings || ui.settings.style.display === 'none') return;
+        loadAIConf();
+        loadFeatureConf();
       }
     };
   }
@@ -1115,7 +1258,7 @@
       const AUTH_METHOD = saved.authMethod || 'bearer';
       return new Promise((resolve, reject) => {
         if (!API_KEY || API_KEY.includes('sk-xxxx')) {
-          const msg = '⚠️ 请在 [AI配置] 中填写有效的 API Key';
+          const msg = '请在「AI 配置」中填写有效的 API Key';
           panel.log(msg);
           reject(msg);
           return;
@@ -1238,7 +1381,7 @@ ${ocrText}
     async autoSelectAndSubmit(aiResponse, itemBodyElement) {
       const match = aiResponse.match(/(?:正确)?答案[：:]?\s*([A-F]+(?:[,，][A-F]+)*|[对错]|正确|错误)/i);
       if (!match) {
-        panel.log('⚠️ 未提取到有效选项，请人工检查');
+        panel.log('未提取到有效选项，请人工检查');
         return;
       }
       let answerRaw = match[1].replace(/[,，]/g, '').trim();
@@ -1254,7 +1397,7 @@ ${ocrText}
         }
       }
       if (!targetIndices.length) return;
-      panel.log(`✅ AI 建议选：${answerRaw}`);
+      panel.log(`AI 建议选：${answerRaw}`);
 
       const listContainer = itemBodyElement.querySelector('.list-inline.list-unstyled-radio') ||
         itemBodyElement.querySelector('.list-unstyled.list-unstyled-radio') ||
@@ -1265,7 +1408,7 @@ ${ocrText}
         itemBodyElement.querySelector('ul') ||
         itemBodyElement.querySelector('[role="radiogroup"]');
       if (!listContainer) {
-        panel.log('⚠️ 未找到选项容器');
+        panel.log('未找到选项容器');
         return;
       }
       const options = listContainer.querySelectorAll('li, .option-item, .answer-item, [class*="option-item"], [class*="answer-item"]');
@@ -1302,7 +1445,7 @@ ${ocrText}
         panel.log('正在提交...');
         submitBtn.click();
       } else {
-        panel.log('⚠️ 未找到提交按钮，请手动提交');
+        panel.log('未找到提交按钮，请手动提交');
       }
     }
   };
@@ -1392,7 +1535,7 @@ ${ocrText}
         }
         console.log(`当前集数:${this.outside}/全部集数${list.length}`);
         if (this.outside >= list.length) {
-          this.panel.log('课程刷完啦 🎉');
+          this.panel.log('课程已刷完');
           this.panel.resetStartButton('刷完啦~');
           Store.removeProgress(this.baseUrl);
           Store.clearPendingAutoStart();
@@ -1415,7 +1558,7 @@ ${ocrText}
         let isCompleted = this.checkCompletionStatus(statusBox, statusText);
 
         if (isCompleted) {
-          this.panel.log(`✅ ${title} 已完成，跳过`);
+          this.panel.log(`${title} 已完成，跳过`);
           this.updateProgress(this.outside + 1, 0);
           continue;
         }
@@ -1495,7 +1638,7 @@ ${ocrText}
         const isCompleted = this.checkCompletionStatus(statusBox, statusText);
 
         if (isCompleted) {
-          this.panel.log(`✅ ${title} 已完成，跳过`);
+          this.panel.log(`${title} 已完成，跳过`);
           idx++;
           this.updateProgress(this.outside, idx);
           continue;
@@ -1667,9 +1810,9 @@ ${ocrText}
           while (retryCount < maxRetry && !success) {
             try {
               if (retryCount > 0) {
-                this.panel.log(`🔄 第 ${i + 1} 题重试 ${retryCount}/${maxRetry}...`);
+                this.panel.log(`第 ${i + 1} 题重试 ${retryCount}/${maxRetry}…`);
               }
-              panel.log('🤖 请求 AI 获取答案...');
+              panel.log('请求 AI 获取答案…');
               const aiText = await Solver.askAI(ocrResult, optionCount);
               await Solver.autoSelectAndSubmit(aiText, targetEl);
               success = true;
@@ -1680,7 +1823,7 @@ ${ocrText}
                 this.panel.log(`等待 5 秒后重试...`);
                 await Utils.sleep(5000);
               } else {
-                this.panel.log(`⚠️ 第 ${i + 1} 题重试 ${maxRetry} 次后仍失败，跳过`);
+                this.panel.log(`第 ${i + 1} 题重试 ${maxRetry} 次后仍失败，跳过`);
               }
             }
           }
@@ -1934,7 +2077,7 @@ ${ocrText}
           nextBtn.dispatchEvent(new Event('click'));
         } else {
           localStorage.removeItem(Config.storageKeys.proClassCount);
-          this.panel.log('课程播放完毕 🎉');
+          this.panel.log('课程播放完毕');
           Store.clearPendingAutoStart();
           this.panel.resetStartButton('开始刷课');
           break;
@@ -2125,7 +2268,7 @@ ${ocrText}
       for (let retryCount = 0; retryCount < maxRetry; retryCount++) {
         try {
           if (retryCount > 0) this.panel.log(`${label || '当前题目'} 重试 ${retryCount}/${maxRetry - 1}`);
-          this.panel.log('🤖 请求 AI 获取答案...');
+          this.panel.log('请求 AI 获取答案…');
           const aiText = await Solver.askAI(ocrResult, optionCount);
           await Solver.autoSelectAndSubmit(aiText, questionRoot);
           await Utils.sleep(1200);
@@ -2200,7 +2343,7 @@ ${ocrText}
     // 直接在ai-workspace页面处理课程的逻辑
     async handleNext(count) {
       if (count >= this.source.length) {
-        this.panel.log('课程刷完啦 🎉');
+        this.panel.log('课程已刷完');
         this.panel.resetStartButton('刷完啦~');
         Store.clearPendingAutoStart();
         return;
@@ -2275,8 +2418,10 @@ ${ocrText}
     await Utils.waitForMountTarget();
     try {
       panel = createPanel();
-      panel.log(`雨课堂刷课助手 v${Config.version} 已加载`);
+      panel.log(`雨课助手 v${Config.version} 已加载`);
       panel.setStartHandler(start);
+      // 异步尝试从本机管理台同步 AI / 功能配置，失败不影响正常使用
+      const syncDone = AppSync.sync().catch(err => console.debug('[ykt] 本机配置同步失败', err));
       const pendingAutoStart = Store.getPendingAutoStart();
       const currentClassroomId = Utils.getCurrentClassroomId();
       if (
@@ -2286,7 +2431,10 @@ ${ocrText}
         && pendingAutoStart.classroomId === currentClassroomId
       ) {
         panel.log(`检测到跨页面跳转，自动恢复刷课：课堂 ${currentClassroomId}`);
-        setTimeout(() => panel.start(), 1200);
+        // L11：先等配置同步完成（最多约 800ms），避免用旧 AI/功能配置恢复刷课
+        Promise.race([syncDone, Utils.sleep(800)]).finally(() => {
+          setTimeout(() => panel.start(), 400);
+        });
       }
     } catch (err) {
       console.error('面板初始化失败:', err);

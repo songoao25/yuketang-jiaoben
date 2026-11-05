@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>雨课助手</title>
+  <link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+  <!-- 内联 SVG 图标（SF Symbols 风格线性图标；严格离线，无外链） -->
+  <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.7"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.7"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.7"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.7"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><polyline points="8.6 8 4.6 12 8.6 16"/><polyline points="15.4 8 19.4 12 15.4 16"/><line x1="13.2" y1="5.6" x2="10.8" y2="18.4"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8.5" y1="6.5" x2="20" y2="6.5"/><line x1="8.5" y1="12" x2="20" y2="12"/><line x1="8.5" y1="17.5" x2="20" y2="17.5"/><circle cx="4.6" cy="6.5" r="1.05" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.05" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.05" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M19.3 14.9a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4.3" width="17" height="6.1" rx="2"/><rect x="3.5" y="13.6" width="17" height="6.1" rx="2"/><circle cx="7.6" cy="7.35" r=".95" fill="currentColor" stroke="none"/><circle cx="7.6" cy="16.65" r=".95" fill="currentColor" stroke="none"/><line x1="12" y1="7.35" x2="16.6" y2="7.35"/><line x1="12" y1="16.65" x2="16.6" y2="16.65"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="3.4 12.6 7.6 12.6 10.1 6 13.9 18 16.4 12.6 20.6 12.6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M13.8 4.6h5.6v5.6"/><line x1="19.4" y1="4.6" x2="11.4" y2="12.6"/><path d="M19.4 14.2v3.9a1.9 1.9 0 0 1-1.9 1.9H5.9A1.9 1.9 0 0 1 4 18.1V6.5a1.9 1.9 0 0 1 1.9-1.9h3.9"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.8" y="8.8" width="11.2" height="11.2" rx="2.1"/><path d="M5.6 15.2H5a1.9 1.9 0 0 1-1.9-1.9v-8A1.9 1.9 0 0 1 5 3.4h8a1.9 1.9 0 0 1 1.9 1.9v.6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="4.8 12.4 9.6 17.2 19.2 6.8"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><polyline points="8.2 12.3 11 15.1 15.9 9.6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2a1.96 1.96 0 0 1 3.4 0l7.3 12.7a1.96 1.96 0 0 1-1.7 2.94H4.7A1.96 1.96 0 0 1 3 16.9l7.3-12.7Z"/><line x1="12" y1="9.2" x2="12" y2="13.4"/><circle cx="12" cy="16.5" r=".95" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><line x1="12" y1="11" x2="12" y2="16.2"/><circle cx="12" cy="8.1" r=".95" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.6 12S6.1 5.7 12 5.7 21.4 12 21.4 12 17.9 18.3 12 18.3 2.6 12 2.6 12Z"/><circle cx="12" cy="12" r="3.1"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M4.3 7.3C3.1 8.7 2.6 10.4 2.6 12c0 0 3.5 6.3 9.4 6.3 1.6 0 3-.5 4.2-1.2"/><path d="M9.5 6.1c.8-.2 1.6-.4 2.5-.4 5.9 0 9.4 6.3 9.4 6.3s-1.1 2-3.1 3.7"/><path d="M9.9 9.9a3.1 3.1 0 0 0 4.3 4.3"/><line x1="4.3" y1="4.3" x2="19.7" y2="19.7"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.6 7.4a1.9 1.9 0 0 1 1.9-1.9h3.1l2 2.5h7.9a1.9 1.9 0 0 1 1.9 1.9v7.7a1.9 1.9 0 0 1-1.9 1.9H5.5a1.9 1.9 0 0 1-1.9-1.9V7.4Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><line x1="4.4" y1="6.9" x2="19.6" y2="6.9"/><path d="M9 6.9V4.6h6v2.3"/><path d="M6.4 6.9l.85 11.9a1.7 1.7 0 0 0 1.7 1.6h6.1a1.7 1.7 0 0 0 1.7-1.6l.85-11.9"/><line x1="10.1" y1="10.9" x2="10.1" y2="16.3"/><line x1="13.9" y1="10.9" x2="13.9" y2="16.3"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.2 3.8h7.4l5 5.2v10.2a1.7 1.7 0 0 1-1.7 1.7H6.2a1.7 1.7 0 0 1-1.7-1.7V5.5a1.7 1.7 0 0 1 1.7-1.7Z"/><polyline points="13.4 3.8 13.4 9.2 18.8 9.2"/><line x1="8.4" y1="12.9" x2="15.4" y2="12.9"/><line x1="8.4" y1="16.4" x2="13.2" y2="16.4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a3.9 3.9 0 0 0 5.55 0l2.8-2.8a3.93 3.93 0 0 0-5.56-5.55l-1.4 1.4"/><path d="M14 10a3.9 3.9 0 0 0-5.55 0l-2.8 2.8a3.93 3.93 0 0 0 5.56 5.55l1.4-1.4"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="15.4" cy="8.6" r="4.1"/><path d="M12.2 11.8 4 20"/><path d="M6.5 17.5 8.6 19.6"/><path d="M4 20l1.7 1.7"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><line x1="9.4" y1="4.3" x2="7.8" y2="19.7"/><line x1="16.2" y1="4.3" x2="14.6" y2="19.7"/><line x1="4.6" y1="9.3" x2="19.7" y2="9.3"/><line x1="4.1" y1="14.7" x2="19.2" y2="14.7"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><line x1="12" y1="4.2" x2="12" y2="14.6"/><polyline points="7.6 10.4 12 14.8 16.4 10.4"/><path d="M4.6 17.2v1.7a1.8 1.8 0 0 0 1.8 1.8h11.2a1.8 1.8 0 0 0 1.8-1.8v-1.7"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4.5 5.6A1.6 1.6 0 0 1 6.1 4h4.4A1.5 1.5 0 0 1 12 5.5v13.8a2 2 0 0 0-2-1.8H4.5V5.6Z"/><path d="M19.5 5.6A1.6 1.6 0 0 0 17.9 4h-4.4A1.5 1.5 0 0 0 12 5.5v13.8a2 2 0 0 1 2-1.8h5.5V5.6Z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20.2 12.3a8.2 8.2 0 1 1-2.3-6.05"/><polyline points="20.1 4.3 20.1 11.2 13.4 11.2"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4.4" width="18" height="12.6" rx="2"/><line x1="8.4" y1="20.4" x2="15.6" y2="20.4"/><line x1="12" y1="17" x2="12" y2="20.4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.9"/><line x1="12" y1="3.2" x2="12" y2="5.2"/><line x1="12" y1="18.8" x2="12" y2="20.8"/><line x1="3.2" y1="12" x2="5.2" y2="12"/><line x1="18.8" y1="12" x2="20.8" y2="12"/><line x1="5.8" y1="5.8" x2="7.2" y2="7.2"/><line x1="16.8" y1="16.8" x2="18.2" y2="18.2"/><line x1="18.2" y1="5.8" x2="16.8" y2="7.2"/><line x1="7.2" y1="16.8" x2="5.8" y2="18.2"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.4 14.1A8.6 8.6 0 0 1 9.9 3.6a8.6 8.6 0 1 0 10.5 10.5Z"/></symbol>
+  </svg>
+
+  <div class="app-shell" id="appShell">
+    <!-- 顶栏：隐藏标题栏后的拖动区；左侧 72px 为红绿灯空间 -->
+    <header class="toolbar" id="toolbar">
+      <span class="toolbar-title" id="toolbarTitle" hidden>雨课助手</span>
+      <div class="toolbar-actions">
+        <span class="toolbar-sync">
+          <span class="sync-dot is-idle" id="syncDot" aria-hidden="true"></span>
+          <span id="toolbarSyncText">最近同步：—</span>
+        </span>
+        <button class="btn btn-sm" type="button" id="btnRefreshState" aria-label="刷新状态">
+          <svg class="icon" aria-hidden="true"><use href="#i-refresh" /></svg><span>刷新</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 侧栏：导航 + 底部状态 -->
+    <aside class="sidebar" aria-label="应用侧栏">
+      <div class="sidebar-inner">
+        <nav class="nav" role="tablist" aria-label="主导航" aria-orientation="vertical">
+          <div class="nav-label" role="presentation">工作台</div>
+          <button class="nav-item is-active" type="button" role="tab" id="tab-overview" data-page="overview" aria-controls="page-overview" aria-selected="true" aria-label="概览">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-grid" /></svg><span class="nav-text">概览</span><span class="nav-kbd" aria-hidden="true">⌘1</span>
+          </button>
+          <button class="nav-item" type="button" role="tab" id="tab-script" data-page="script" aria-controls="page-script" aria-selected="false" aria-label="脚本">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-code" /></svg><span class="nav-text">脚本</span><span class="nav-kbd" aria-hidden="true">⌘2</span>
+          </button>
+          <button class="nav-item" type="button" role="tab" id="tab-ai" data-page="ai" aria-controls="page-ai" aria-selected="false" aria-label="AI 配置">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-key" /></svg><span class="nav-text">AI 配置</span><span class="nav-kbd" aria-hidden="true">⌘3</span>
+          </button>
+          <div class="nav-label" role="presentation">系统</div>
+          <button class="nav-item" type="button" role="tab" id="tab-logs" data-page="logs" aria-controls="page-logs" aria-selected="false" aria-label="运行日志">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-list" /></svg><span class="nav-text">运行日志</span><span class="nav-kbd" aria-hidden="true">⌘4</span>
+          </button>
+          <button class="nav-item" type="button" role="tab" id="tab-settings" data-page="settings" aria-controls="page-settings" aria-selected="false" aria-label="设置">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-gear" /></svg><span class="nav-text">设置</span><span class="nav-kbd" aria-hidden="true">⌘5</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="mini-status">
+            <span class="mini-dot is-idle" id="miniDot" aria-hidden="true"></span>
+            <span class="mini-text" id="miniText">正在连接…</span>
+          </div>
+          <div class="sidebar-version mono" id="sidebarMeta">v—</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 内容区 -->
+    <main class="main">
+      <div class="main-scroll" id="mainScroll">
+
+        <!-- 01 概览 -->
+        <section class="page" id="page-overview" role="tabpanel" aria-labelledby="tab-overview" data-page="overview">
+          <div class="page-skeleton" id="overviewSkeleton" aria-hidden="true">
+            <span class="sk-line sk-heading"></span>
+            <div class="sk-group"><span class="sk-line sk-label"></span><div class="sk-box"><span class="sk-line"></span><span class="sk-line"></span><span class="sk-line"></span></div></div>
+            <div class="sk-group"><span class="sk-line sk-label"></span><div class="sk-box"><span class="sk-line"></span><span class="sk-line"></span></div></div>
+            <div class="sk-group"><span class="sk-line sk-label"></span><div class="sk-box"><span class="sk-line"></span><span class="sk-line"></span></div></div>
+          </div>
+
+          <div id="overviewBody" hidden>
+            <header class="page-head">
+              <div class="page-heading">
+                <h1>概览</h1>
+                <p class="page-sub">本地服务、用户脚本与 AI 配置</p>
+              </div>
+
+            </header>
+
+            <section class="group" aria-labelledby="groupStatus">
+              <h2 class="group-title" id="groupStatus">运行状态</h2>
+              <div class="group-box rows-iconed">
+                <div class="row">
+                  <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-server" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">
+                      <span id="serviceRowTitle">本地服务</span>
+                      <span class="badge" id="serviceBadge"><span class="badge-dot" aria-hidden="true"></span><span id="serviceBadgeText">检查中</span></span>
+                    </div>
+                    <div class="row-desc mono" id="serviceRowDesc">—</div>
+                  </div>
+                  <div class="row-control">
+                    <button class="btn btn-sm btn-primary" type="button" id="btnStartService" aria-label="启动本地服务" hidden>启动服务</button>
+                    <button class="btn btn-sm" type="button" id="btnRestartService" aria-label="重启本地服务">重启</button>
+                    <button class="btn btn-sm btn-danger-quiet" type="button" id="btnStopService" aria-label="停止本地服务">停止</button>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <span class="row-icon is-indigo" aria-hidden="true"><svg class="icon"><use href="#i-code" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">
+                      <span>用户脚本</span>
+                      <span class="row-title-extra mono" id="scriptRowVersion">v—</span>
+                      <span class="badge" id="installBadge"><span class="badge-dot" aria-hidden="true"></span><span id="installBadgeText">检查中</span></span>
+                    </div>
+                    <div class="row-desc" id="scriptRowDesc">—</div>
+                  </div>
+                  <div class="row-control">
+                    <button class="btn btn-sm" type="button" id="btnInstallScript" aria-label="安装或更新用户脚本"><span id="btnInstallScriptText">安装脚本</span></button>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <span class="row-icon is-green" aria-hidden="true"><svg class="icon"><use href="#i-activity" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">
+                      <span>配置同步</span>
+                      <span class="badge" id="syncBadge"><span class="badge-dot" aria-hidden="true"></span><span id="syncBadgeText">检查中</span></span>
+                    </div>
+                    <div class="row-desc mono" id="syncRowDesc">—</div>
+                  </div>
+                  <div class="row-control"></div>
+                </div>
+              </div>
+              <p class="group-note overview-hint" id="serviceHint" hidden></p>
+            </section>
+
+            <section class="group" aria-labelledby="groupQuick">
+              <h2 class="group-title" id="groupQuick">快捷操作</h2>
+              <div class="group-box rows-iconed">
+                <div class="row">
+                  <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-external" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">打开雨课堂</div>
+                    <div class="row-desc mono" id="quickOpenDesc">https://yuketang.cn/</div>
+                  </div>
+                  <div class="row-control">
+                    <button class="btn btn-primary btn-sm" type="button" id="btnOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
+                  </div>
+                </div>
+                <div class="row">
+                  <span class="row-icon is-purple" aria-hidden="true"><svg class="icon"><use href="#i-key" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">AI 答题配置</div>
+                    <div class="row-desc" id="aiRowDesc">—</div>
+                  </div>
+                  <div class="row-control">
+                    <button class="link-btn" type="button" id="btnGoAI" aria-label="打开 AI 配置">配置</button>
+                  </div>
+                </div>
+                <div class="row">
+                  <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-list" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">运行日志</div>
+                    <div class="row-desc">最近 200 条本地服务日志</div>
+                  </div>
+                  <div class="row-control">
+                    <button class="link-btn" type="button" id="btnGoLogs" aria-label="查看运行日志">查看</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="group" aria-labelledby="groupStart">
+              <h2 class="group-title" id="groupStart">快速开始</h2>
+              <div class="group-box">
+                <div class="step-row">
+                  <span class="step-num" id="stepService" aria-hidden="true"><span>1</span><svg class="icon"><use href="#i-check" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">启动本地服务</div>
+                    <div class="row-desc">启动后即可安装脚本并同步配置</div>
+                  </div>
+                </div>
+                <div class="step-row">
+                  <span class="step-num" id="stepScript" aria-hidden="true"><span>2</span><svg class="icon"><use href="#i-check" /></svg></span>
+                  <div class="row-copy">
+                    <div class="row-title">安装用户脚本</div>
+                    <div class="row-desc">浏览器装好 Tampermonkey 后点「重新安装」</div>
+                  </div>
+                </div>
+                <div class="step-row">
+                  <span class="step-num" aria-hidden="true"><span>3</span></span>
+                  <div class="row-copy">
+                    <div class="row-title">打开雨课堂</div>
+                    <div class="row-desc">进入课程目录页，点击页面上的开始刷课</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- 02 脚本 -->
+        <section class="page" id="page-script" role="tabpanel" aria-labelledby="tab-script" data-page="script" hidden>
+          <header class="page-head">
+            <div class="page-heading">
+              <h1>脚本</h1>
+              <p class="page-sub">内置用户脚本的版本与安装</p>
+            </div>
+            <div class="page-head-side">
+              <button class="btn btn-sm" type="button" id="btnScriptOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
+            </div>
+          </header>
+
+          <section class="group" aria-labelledby="groupInstall">
+            <h2 class="group-title" id="groupInstall">安装状态</h2>
+            <div class="group-box rows-iconed">
+              <div class="row">
+                <span class="row-icon is-green" aria-hidden="true"><svg class="icon"><use href="#i-download" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">
+                    <span>安装状态</span>
+                    <span class="badge" id="installStateBadge"><span class="badge-dot" aria-hidden="true"></span><span id="installStateBadgeText">—</span></span>
+                  </div>
+                  <div class="row-desc" id="installHint">—</div>
+                </div>
+                <div class="row-control">
+                  <button class="btn btn-primary btn-sm" type="button" id="btnInstallFromScript" aria-label="在浏览器中重新安装脚本">重新安装</button>
+                </div>
+              </div>
+              <div class="row">
+                <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-link" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">安装地址</div>
+                  <div class="row-desc mono" id="installUrl">—</div>
+                </div>
+                <div class="row-control">
+                  <button class="icon-btn" type="button" id="btnCopyInstallUrl" aria-label="复制安装地址" title="复制安装地址">
+                    <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="group" aria-labelledby="groupScriptInfo">
+            <h2 class="group-title" id="groupScriptInfo">脚本信息</h2>
+            <div class="group-box rows-iconed">
+              <div class="row">
+                <span class="row-icon is-indigo" aria-hidden="true"><svg class="icon"><use href="#i-code" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">版本</div>
+                  <div class="row-desc" id="infoScriptLines">—</div>
+                </div>
+                <div class="row-control"><span class="row-value mono" id="infoScriptVersion">—</span></div>
+              </div>
+              <div class="row">
+                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-hash" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">指纹</div>
+                  <div class="row-desc">SHA-256 前 8 位</div>
+                </div>
+                <div class="row-control">
+                  <span class="row-value mono" id="infoScriptHash">—</span>
+                  <button class="icon-btn" type="button" id="btnCopyHash" aria-label="复制脚本指纹" title="复制完整指纹">
+                    <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="row">
+                <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-link" /></svg></span>
+                <div class="row-copy"><div class="row-title">匹配域名</div></div>
+                <div class="row-control"><span class="chips" id="infoScriptMatches"></span></div>
+              </div>
+              <div class="row">
+                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-file" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">来源</div>
+                  <div class="row-desc" id="infoScriptFile">—</div>
+                </div>
+                <div class="row-control"><span class="row-value">随 App 更新</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="group" aria-labelledby="groupGuide">
+            <h2 class="group-title" id="groupGuide">Tampermonkey 安装说明</h2>
+            <div class="group-box">
+              <div class="step-row">
+                <span class="step-num" aria-hidden="true"><span>1</span></span>
+                <div class="row-copy">
+                  <div class="row-title">安装脚本管理器</div>
+                  <div class="row-desc">在 Chrome / Edge / Safari 中安装 Tampermonkey 扩展并启用</div>
+                </div>
+              </div>
+              <div class="step-row">
+                <span class="step-num" aria-hidden="true"><span>2</span></span>
+                <div class="row-copy">
+                  <div class="row-title">打开安装地址</div>
+                  <div class="row-desc">启动本地服务后点「重新安装」，或复制安装地址到浏览器打开</div>
+                </div>
+              </div>
+              <div class="step-row">
+                <span class="step-num" aria-hidden="true"><span>3</span></span>
+                <div class="row-copy">
+                  <div class="row-title">确认安装并打开雨课堂</div>
+                  <div class="row-desc">在 Tampermonkey 弹窗中点击「安装」，随后打开雨课堂即可看到脚本面板</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- 03 AI 配置 -->
+        <section class="page" id="page-ai" role="tabpanel" aria-labelledby="tab-ai" data-page="ai" hidden>
+          <header class="page-head">
+            <div class="page-heading">
+              <h1>AI 配置</h1>
+              <p class="page-sub">自动答题与图文讨论回复使用的模型</p>
+            </div>
+            <div class="page-head-side">
+              <span class="dirty-chip" id="aiDirtyChip" hidden>未保存</span>
+              <button class="btn btn-primary" type="button" id="btnSaveAI" aria-label="保存 AI 配置">保存配置</button>
+            </div>
+          </header>
+
+          <section class="group" aria-labelledby="groupProvider">
+            <h2 class="group-title" id="groupProvider">服务商</h2>
+            <div class="group-box">
+              <div class="row">
+                <div class="row-copy">
+                  <div class="row-title">服务商预设</div>
+                  <div class="row-desc">选择后自动填充地址、模型与协议，仍可手动修改</div>
+                </div>
+                <div class="row-control">
+                  <span class="select-wrap select-md">
+                    <select id="aiPreset" aria-label="AI 服务商预设">
+                      <option value="deepseek">DeepSeek</option>
+                      <option value="kimi">Kimi（Moonshot）</option>
+                      <option value="qwen">通义千问</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="claude">Claude（Anthropic）</option>
+                      <option value="custom">自定义</option>
+                    </select>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p class="group-note" id="providerDesc">—</p>
+          </section>
+
+          <form class="group" id="aiForm" autocomplete="off" aria-labelledby="groupAPI">
+            <h2 class="group-title" id="groupAPI">接口</h2>
+            <div class="group-box">
+              <div class="row">
+                <div class="row-copy">
+                  <label class="row-title" for="aiUrl">API 地址</label>
+                  <div class="row-desc">完整的 chat/completions 接口地址</div>
+                </div>
+                <div class="row-control">
+                  <input class="input input-wide mono" id="aiUrl" type="text" spellcheck="false" placeholder="https://api.deepseek.com/chat/completions" aria-label="API 地址" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="row-copy"><label class="row-title" for="aiModel">模型</label></div>
+                <div class="row-control">
+                  <input class="input input-md mono" id="aiModel" type="text" spellcheck="false" placeholder="deepseek-chat" aria-label="模型名称" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="row-copy"><label class="row-title" for="aiFormat">API 格式</label></div>
+                <div class="row-control">
+                  <span class="select-wrap select-md">
+                    <select id="aiFormat" aria-label="API 格式">
+                      <option value="openai">OpenAI 兼容</option>
+                      <option value="anthropic">Anthropic Messages</option>
+                    </select>
+                  </span>
+                </div>
+              </div>
+              <div class="row">
+                <div class="row-copy"><label class="row-title" for="aiAuth">认证方式</label></div>
+                <div class="row-control">
+                  <span class="select-wrap select-md">
+                    <select id="aiAuth" aria-label="认证方式">
+                      <option value="bearer">Bearer Token</option>
+                      <option value="x-api-key">x-api-key</option>
+                    </select>
+                  </span>
+                </div>
+              </div>
+              <div class="row">
+                <div class="row-copy">
+                  <label class="row-title" for="aiKey">API Key</label>
+                  <div class="row-desc">仅保存在本机配置文件，不会上传</div>
+                </div>
+                <div class="row-control">
+                  <div class="input-group">
+                    <input class="input mono" id="aiKey" type="password" spellcheck="false" autocomplete="new-password" placeholder="sk-…" aria-label="API Key" />
+                    <button class="input-affix" type="button" id="btnToggleKey" aria-label="显示 API Key" aria-pressed="false">
+                      <svg class="icon" aria-hidden="true"><use href="#i-eye" id="keyEyeIcon" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <section class="group" aria-labelledby="groupFeatures">
+            <h2 class="group-title" id="groupFeatures">脚本功能</h2>
+            <div class="group-box">
+              <div class="row">
+                <div class="row-copy">
+                  <div class="row-title">使用 AI 自动作答</div>
+                  <div class="row-desc">识别题目后调用模型生成答案并自动选择</div>
+                </div>
+                <div class="row-control">
+                  <button class="switch" type="button" role="switch" id="switchAutoAI" aria-checked="false" aria-label="使用 AI 自动作答"><span class="switch-knob" aria-hidden="true"></span></button>
+                </div>
+              </div>
+              <div class="row">
+                <div class="row-copy">
+                  <div class="row-title">图文讨论自动回复</div>
+                  <div class="row-desc">自动回复图文讨论区消息，保持课程活跃</div>
+                </div>
+                <div class="row-control">
+                  <button class="switch" type="button" role="switch" id="switchAutoComment" aria-checked="false" aria-label="图文讨论自动回复"><span class="switch-knob" aria-hidden="true"></span></button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <p class="group-note">配置保存在本机 <code>~/.ykt/config.json</code>；打开雨课堂时网页脚本自动同步，服务未运行时回退到浏览器 localStorage。</p>
+        </section>
+
+        <!-- 04 运行日志 -->
+        <section class="page page-wide page-fixed" id="page-logs" role="tabpanel" aria-labelledby="tab-logs" data-page="logs" hidden>
+          <header class="page-head">
+            <div class="page-heading">
+              <h1>运行日志</h1>
+              <p class="page-sub">最近 200 条本地服务日志</p>
+            </div>
+            <div class="page-head-side log-tools">
+              <span class="tool-switch">
+                <span class="tool-switch-label" id="autoScrollLabel">自动滚动</span>
+                <button class="switch switch-sm" type="button" role="switch" id="switchAutoScroll" aria-checked="true" aria-labelledby="autoScrollLabel"><span class="switch-knob" aria-hidden="true"></span></button>
+              </span>
+              <button class="btn btn-sm" type="button" id="btnClearLogs" aria-label="清空日志">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg><span>清空</span>
+              </button>
+              <button class="btn btn-sm" type="button" id="btnRevealLog" aria-label="打开日志文件所在位置">
+                <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg><span>打开文件</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="log-card" aria-label="运行日志列表">
+            <div class="log-card-head">
+              <span class="log-live"><span class="live-dot" aria-hidden="true"></span>日志流</span>
+              <span class="log-count" id="logCount">0 条</span>
+              <span class="log-card-path">
+                <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
+                <span class="mono" id="logPathText">~/.ykt/server.log</span>
+              </span>
+            </div>
+            <div class="log-list" id="logList" role="log" aria-label="运行日志"></div>
+            <div class="empty-state" id="logEmpty" hidden>
+              <span class="empty-icon" aria-hidden="true"><svg class="icon"><use href="#i-list" /></svg></span>
+              <span class="empty-title" id="logEmptyTitle">暂无日志</span>
+              <span class="empty-desc" id="logEmptyDesc">启动本地服务或安装脚本后，这里会显示运行记录。</span>
+              <button class="btn btn-sm" type="button" id="btnRetryLogs" aria-label="重试读取日志" hidden>重试</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 05 设置 -->
+        <section class="page" id="page-settings" role="tabpanel" aria-labelledby="tab-settings" data-page="settings" hidden>
+          <header class="page-head">
+            <div class="page-heading">
+              <h1>设置</h1>
+              <p class="page-sub">本机运行参数与外观</p>
+            </div>
+            <div class="page-head-side">
+              <span class="dirty-chip" id="settingsDirtyChip" hidden>未保存</span>
+              <button class="btn btn-primary" type="button" id="btnSaveSettings" aria-label="保存设置">保存设置</button>
+            </div>
+          </header>
+
+          <div class="settings-layout">
+            <div class="settings-col">
+              <section class="group" aria-labelledby="groupService">
+                <h2 class="group-title" id="groupService">服务</h2>
+                <div class="group-box">
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">本地服务端口</div>
+                      <div class="row-desc">被占用时会在 8899–8910 内自动顺延</div>
+                    </div>
+                    <div class="row-control">
+                      <span class="select-wrap select-sm">
+                        <select id="setPort" aria-label="本地服务端口"></select>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">App 启动时自动启动服务</div>
+                      <div class="row-desc">打开 App 后立即准备配置同步</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="switch" type="button" role="switch" id="switchAutoStart" aria-checked="false" aria-label="App 启动时自动启动服务"><span class="switch-knob" aria-hidden="true"></span></button>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">启用脚本配置同步</div>
+                      <div class="row-desc">允许网页脚本从本机服务读取 AI 配置</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="switch" type="button" role="switch" id="switchSyncEnabled" aria-checked="false" aria-label="启用脚本配置同步"><span class="switch-knob" aria-hidden="true"></span></button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="group" aria-labelledby="groupSite">
+                <h2 class="group-title" id="groupSite">站点</h2>
+                <div class="group-box">
+                  <div class="row">
+                    <div class="row-copy">
+                      <label class="row-title" for="setDefaultUrl">默认网址</label>
+                      <div class="row-desc">打开雨课堂时使用</div>
+                    </div>
+                    <div class="row-control">
+                      <input class="input input-md mono" id="setDefaultUrl" type="text" spellcheck="false" placeholder="https://yuketang.cn/" aria-label="默认网址" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="settings-col">
+              <section class="group" aria-labelledby="groupAppearance">
+                <h2 class="group-title" id="groupAppearance">外观</h2>
+                <div class="group-box">
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">外观</div>
+                      <div class="row-desc">跟随系统时随 macOS 浅色 / 深色模式切换</div>
+                    </div>
+                    <div class="row-control">
+                      <div class="appearance-seg" role="group" aria-label="外观">
+                        <button class="seg-btn is-active" type="button" data-appearance="system" aria-pressed="true" aria-label="跟随系统外观">跟随系统</button>
+                        <button class="seg-btn" type="button" data-appearance="light" aria-pressed="false" aria-label="使用浅色外观">浅色</button>
+                        <button class="seg-btn" type="button" data-appearance="dark" aria-pressed="false" aria-label="使用深色外观">深色</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="group" aria-labelledby="groupData">
+                <h2 class="group-title" id="groupData">数据与关于</h2>
+                <div class="group-box">
+                  <div class="about-head">
+                    <span class="about-icon about-icon-app" aria-hidden="true">雨</span>
+                    <div class="about-copy">
+                      <div class="about-name">雨课助手</div>
+                      <div class="about-version mono" id="aboutVersion">App v— · 脚本 v—</div>
+                      <div class="about-version mono">GPL-3.0 · <span id="aboutPlatform">—</span></div>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">配置目录</div>
+                      <div class="row-desc mono" id="pathHome">—</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="btn btn-sm" type="button" id="btnRevealConfig" aria-label="在访达中打开配置目录">打开</button>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">日志文件</div>
+                      <div class="row-desc mono" id="pathLog">—</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="btn btn-sm" type="button" id="btnRevealLogPath" aria-label="在访达中打开日志文件">打开</button>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="row-copy"><div class="row-title">项目仓库</div></div>
+                    <div class="row-control">
+                      <button class="link-btn" type="button" data-external="https://github.com/songoao25/yuketang-jiaoben" aria-label="打开项目仓库">
+                        <span>打开</span><svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="row-copy"><div class="row-title">脚本上游</div></div>
+                    <div class="row-control">
+                      <button class="link-btn" type="button" data-external="https://github.com/Niuwh/yuketang-jiaoben" aria-label="打开脚本上游仓库">
+                        <span>打开</span><svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p class="group-note">仅供学习交流，请遵守平台规则与学校规定。</p>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast-host" id="toastHost" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <div class="modal-layer" id="modalLayer" hidden>
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+      <div class="modal-icon" id="modalIcon" aria-hidden="true"><svg class="icon"><use href="#i-alert" /></svg></div>
+      <div class="modal-copy">
+        <h2 class="modal-title" id="modalTitle">确认操作</h2>
+        <p class="modal-desc" id="modalDesc"></p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" type="button" id="modalCancel" aria-label="取消">取消</button>
+        <button class="btn btn-danger" type="button" id="modalConfirm" aria-label="确认">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

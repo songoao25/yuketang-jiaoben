@@ -1,0 +1,21 @@
+# 构建产物
+/build/bin/
+/bin/
+/dist/
+*.app
+
+# Wails 生成的前端绑定（无需提交）
+/frontend/wailsjs/
+
+# 私有资料与临时文件
+/.private/
+/tmp/
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Go
+*.test
+*.out
