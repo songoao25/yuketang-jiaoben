@@ -76,7 +76,7 @@ func (a *App) startup(ctx context.Context) {
 			a.emit("自动启动本地服务失败：" + err.Error())
 		}
 	}
-	go a.autoCheckUpdates()
+	a.initSparkle()
 }
 
 func (a *App) shutdown(ctx context.Context) {

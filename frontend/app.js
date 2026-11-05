@@ -536,12 +536,9 @@
 
   function updateStatusText(info) {
     var current = 'v' + ((state && state.appVersion) || '—');
-    if (updateBusy) return info && info.available ? '正在安装更新…' : '正在检查更新…';
-    if (!info) return '当前 ' + current + ' · 尚未检查';
-    if (info.error) return '当前 ' + current + ' · 检查失败';
-    if (!info.checkedAt) return '当前 ' + current + ' · 尚未检查';
-    if (!info.available) return '当前 ' + current + ' · 已是最新 · 检查于 ' + fmtRelative(info.checkedAt);
-    return '当前 ' + current + ' · 可更新至 v' + info.latestVersion;
+    if (updateBusy) return '正在检查更新…';
+    if (info && info.error) return '当前 ' + current + ' · Sparkle 检查失败：' + info.error;
+    return '当前 ' + current + ' · 自动更新由 Sparkle 提供';
   }
   function renderUpdate() {
     var info = MOCK ? mockUpdate : updateInfo;
@@ -573,14 +570,12 @@
     if (MOCK) {
       task = wait(450).then(function () { return mockUpdate; });
     } else {
-      task = requireBindings().CheckForUpdates();
+      task = requireBindings().SparkleCheckForUpdates();
     }
-    task.then(function (info) {
-      if (!MOCK && info) updateInfo = info;
+    task.then(function () {
       updateBusy = false;
       renderUpdate();
-      if (info && info.available) toast('发现新版本 v' + info.latestVersion, 'info');
-      else toast('已是最新版本', 'success');
+      toast('已打开 Sparkle 更新窗口', 'success');
     }).catch(function (err) {
       updateBusy = false;
       var message = errMsg(err);
