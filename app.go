@@ -56,6 +56,7 @@ func NewApp(store *config.Store, scriptSource, appVersion string) (*App, error) 
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	startDockIconSync()
 	if a.store.LoadSettings().AutoStart {
 		if _, err := a.StartService(); err != nil {
 			a.emit("自动启动本地服务失败：" + err.Error())

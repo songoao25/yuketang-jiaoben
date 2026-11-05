@@ -2051,3 +2051,401 @@ html.no-motion *::after {
   font-size: 10.5px;
   color: var(--label-3);
 }
+
+/* ==========================================================================
+   纯白 / 纯黑主题（用户要求：亮色纯白底黑字，暗色纯黑底白字）
+   只覆盖表面与文字令牌，系统蓝强调色与语义色保留。
+   ========================================================================== */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-glass: rgba(255, 255, 255, 0.86);
+  --sidebar: #ffffff;
+  --sidebar-glass: rgba(255, 255, 255, 0.92);
+  --sidebar-border: rgba(0, 0, 0, 0.10);
+  --card: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.10);
+  --card-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --inset: rgba(0, 0, 0, 0.04);
+  --row-hover: rgba(0, 0, 0, 0.035);
+  --label: #000000;
+  --label-2: #4b4b4b;
+  --label-3: #767676;
+  --separator: #e3e3e3;
+  --fill: rgba(0, 0, 0, 0.045);
+  --fill-2: rgba(0, 0, 0, 0.08);
+  --field-bg: #ffffff;
+  --field-border: #d0d0d0;
+  --btn-bg: rgba(0, 0, 0, 0.05);
+  --btn-border: transparent;
+  --btn-hover: rgba(0, 0, 0, 0.08);
+  --btn-active: rgba(0, 0, 0, 0.12);
+  --switch-off: #e5e5e5;
+  --scroll-thumb: rgba(0, 0, 0, 0.20);
+  --scroll-thumb-hover: rgba(0, 0, 0, 0.32);
+  --sk-base: rgba(0, 0, 0, 0.05);
+  --sk-shine: rgba(255, 255, 255, 0.72);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000;
+    --bg-glass: rgba(0, 0, 0, 0.86);
+    --sidebar: #000000;
+    --sidebar-glass: rgba(0, 0, 0, 0.92);
+    --sidebar-border: rgba(255, 255, 255, 0.14);
+    --card: #0b0b0b;
+    --card-border: rgba(255, 255, 255, 0.16);
+    --card-shadow: none;
+    --inset: rgba(255, 255, 255, 0.06);
+    --row-hover: rgba(255, 255, 255, 0.06);
+    --label: #ffffff;
+    --label-2: #a1a1a6;
+    --label-3: #7c7c82;
+    --separator: #333333;
+    --fill: rgba(255, 255, 255, 0.08);
+    --fill-2: rgba(255, 255, 255, 0.14);
+    --field-bg: #000000;
+    --field-border: #3a3a3a;
+    --btn-bg: rgba(255, 255, 255, 0.10);
+    --btn-border: transparent;
+    --btn-hover: rgba(255, 255, 255, 0.14);
+    --btn-active: rgba(255, 255, 255, 0.18);
+    --switch-off: #3a3a3a;
+    --scroll-thumb: rgba(255, 255, 255, 0.22);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.34);
+    --sk-base: rgba(255, 255, 255, 0.08);
+    --sk-shine: rgba(255, 255, 255, 0.12);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-glass: rgba(0, 0, 0, 0.86);
+  --sidebar: #000000;
+  --sidebar-glass: rgba(0, 0, 0, 0.92);
+  --sidebar-border: rgba(255, 255, 255, 0.14);
+  --card: #0b0b0b;
+  --card-border: rgba(255, 255, 255, 0.16);
+  --card-shadow: none;
+  --inset: rgba(255, 255, 255, 0.06);
+  --row-hover: rgba(255, 255, 255, 0.06);
+  --label: #ffffff;
+  --label-2: #a1a1a6;
+  --label-3: #7c7c82;
+  --separator: #333333;
+  --fill: rgba(255, 255, 255, 0.08);
+  --fill-2: rgba(255, 255, 255, 0.14);
+  --field-bg: #000000;
+  --field-border: #3a3a3a;
+  --btn-bg: rgba(255, 255, 255, 0.10);
+  --btn-border: transparent;
+  --btn-hover: rgba(255, 255, 255, 0.14);
+  --btn-active: rgba(255, 255, 255, 0.18);
+  --switch-off: #3a3a3a;
+  --scroll-thumb: rgba(255, 255, 255, 0.22);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.34);
+  --sk-base: rgba(255, 255, 255, 0.08);
+  --sk-shine: rgba(255, 255, 255, 0.12);
+}
+
+/* 小窗口下教程卡片不溢出，保持居中 */
+.onboarding-card {
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+@media (max-width: 560px) {
+  .onboarding-layer { padding: 16px; }
+  .onboarding-card { padding: 18px 18px 14px; }
+}
+
+/* 图标随纯白/纯黑主题：行图标改为单色线性，不再使用彩色底块 */
+.row-icon,
+.row-icon.is-blue,
+.row-icon.is-green,
+.row-icon.is-orange,
+.row-icon.is-purple,
+.row-icon.is-indigo,
+.row-icon.is-gray {
+  background: var(--fill);
+  background-image: none;
+  color: var(--label-2);
+  box-shadow: none;
+}
+
+.row-icon .icon {
+  stroke-width: 1.6;
+}
+
+/* 关于/教程里的 App 标记同样跟随黑白主题 */
+.about-icon-app {
+  color: var(--label);
+  background: var(--card);
+  border: 1px solid var(--separator);
+}
+
+/* 教程排版：统一字号阶与 4px 栅格间距，卡片保持居中 */
+.onboarding-card {
+  padding: 24px 24px 20px;
+}
+
+.onboarding-head {
+  margin-bottom: 16px;
+}
+
+.onboarding-title {
+  margin: 0 0 8px;
+}
+
+.onboarding-body {
+  min-height: 88px;
+}
+
+.onboarding-points li {
+  font-size: 12px;
+}
+
+.onboarding-dots {
+  margin: 20px 0 16px;
+}
+
+.onboarding-actions {
+  padding-top: 16px;
+}
+
+.onboarding-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+}
+
+/* 暗色下弹层与背景分层：加深遮罩 + 更强模糊（纯黑底上仍能看出弹层） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .onboarding-backdrop,
+  :root:not([data-theme="light"]) .modal-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+
+:root[data-theme="dark"] .onboarding-backdrop,
+:root[data-theme="dark"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* 严格按规范统一图标：单色、16/18、1.5 描边 */
+.icon {
+  stroke-width: 1.5;
+}
+
+.row-icon .icon {
+  stroke-width: 1.5;
+}
+
+.nav-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.about-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* 概览 / 刷课页里的内联最近日志 */
+.log-card-inline {
+  flex: none;
+  min-height: 0;
+}
+
+.log-card-inline .log-card-head {
+  border-bottom: 1px solid var(--separator);
+}
+
+.log-card-inline .log-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.log-card-inline .log-card-head .link-btn {
+  margin-left: 10px;
+}
+
+/* 与「超星助手」一致的侧栏底部品牌与预览假红绿灯 */
+.sidebar-brand {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-brand-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+.sidebar-version {
+  font-size: 10px;
+  color: var(--label-3);
+}
+
+.mock-lights {
+  display: none;
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 8px;
+}
+
+html.mock .mock-lights {
+  display: flex;
+}
+
+.mock-light {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.mock-light.is-red { background: #ff5f57; }
+.mock-light.is-yellow { background: #febc2e; }
+.mock-light.is-green { background: #28c840; }
+
+.sync-dot.is-error {
+  background: var(--red);
+}
+
+/* 刷课页内嵌的完整日志卡（与超星助手刷课页同款） */
+.log-card-runtime {
+  flex: none;
+  height: 340px;
+}
+
+.log-card-runtime .log-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.log-head-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ==========================================================================
+   最终主题（与「超星助手」对齐）
+   亮色：纯白底黑字；暗色：Apple 深色语义色（不用纯黑，保证可读性）
+   ========================================================================== */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-glass: rgba(255, 255, 255, 0.86);
+  --sidebar-border: rgba(0, 0, 0, 0.10);
+  --card: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.10);
+  --card-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --inset: rgba(0, 0, 0, 0.05);
+  --row-hover: rgba(0, 0, 0, 0.035);
+  --label: #000000;
+  --label-2: #4a4a4a;
+  --label-3: #737373;
+  --separator: #e5e5e5;
+  --fill: rgba(0, 0, 0, 0.05);
+  --fill-2: rgba(0, 0, 0, 0.10);
+  --field-bg: #ffffff;
+  --field-border: #c6c6c8;
+  --btn-bg: rgba(0, 0, 0, 0.05);
+  --btn-hover: rgba(0, 0, 0, 0.08);
+  --btn-active: rgba(0, 0, 0, 0.12);
+  --switch-off: #e9e9ea;
+  --scroll-thumb: rgba(0, 0, 0, 0.20);
+  --scroll-thumb-hover: rgba(0, 0, 0, 0.32);
+  --toast-text: #ffffff;
+  --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  --sk-base: rgba(0, 0, 0, 0.05);
+  --sk-shine: rgba(255, 255, 255, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1c1c1e;
+    --sidebar: #232326;
+    --sidebar-glass: rgba(35, 35, 38, 0.82);
+    --sidebar-border: rgba(255, 255, 255, 0.14);
+    --card: #2c2c2e;
+    --card-border: rgba(255, 255, 255, 0.10);
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --inset: rgba(255, 255, 255, 0.07);
+    --row-hover: rgba(255, 255, 255, 0.055);
+    --label: #ffffff;
+    --label-2: #a1a1a6;
+    --label-3: #7c7c82;
+    --separator: #38383a;
+    --fill: rgba(255, 255, 255, 0.07);
+    --fill-2: rgba(255, 255, 255, 0.12);
+    --field-bg: #1c1c1e;
+    --field-border: #48484a;
+    --btn-bg: rgba(255, 255, 255, 0.08);
+    --btn-hover: rgba(255, 255, 255, 0.12);
+    --btn-active: rgba(255, 255, 255, 0.16);
+    --switch-off: #39393d;
+    --scroll-thumb: rgba(255, 255, 255, 0.20);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.32);
+    --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    --sk-base: rgba(255, 255, 255, 0.06);
+    --sk-shine: rgba(255, 255, 255, 0.10);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1c1c1e;
+  --sidebar: #232326;
+  --sidebar-glass: rgba(35, 35, 38, 0.82);
+  --sidebar-border: rgba(255, 255, 255, 0.14);
+  --card: #2c2c2e;
+  --card-border: rgba(255, 255, 255, 0.10);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --inset: rgba(255, 255, 255, 0.07);
+  --row-hover: rgba(255, 255, 255, 0.055);
+  --label: #ffffff;
+  --label-2: #a1a1a6;
+  --label-3: #7c7c82;
+  --separator: #38383a;
+  --fill: rgba(255, 255, 255, 0.07);
+  --fill-2: rgba(255, 255, 255, 0.12);
+  --field-bg: #1c1c1e;
+  --field-border: #48484a;
+  --btn-bg: rgba(255, 255, 255, 0.08);
+  --btn-hover: rgba(255, 255, 255, 0.12);
+  --btn-active: rgba(255, 255, 255, 0.16);
+  --switch-off: #39393d;
+  --scroll-thumb: rgba(255, 255, 255, 0.20);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.32);
+  --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  --sk-base: rgba(255, 255, 255, 0.06);
+  --sk-shine: rgba(255, 255, 255, 0.10);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.chips .chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

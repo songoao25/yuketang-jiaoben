@@ -11,6 +11,7 @@
   <!-- 内联 SVG 图标（SF Symbols 风格线性图标；严格离线，无外链） -->
   <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.7"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.7"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.7"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.7"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M9 6.2 19 12 9 17.8V6.2Z"/></symbol>
     <symbol id="i-code" viewBox="0 0 24 24"><polyline points="8.6 8 4.6 12 8.6 16"/><polyline points="15.4 8 19.4 12 15.4 16"/><line x1="13.2" y1="5.6" x2="10.8" y2="18.4"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24"><line x1="8.5" y1="6.5" x2="20" y2="6.5"/><line x1="8.5" y1="12" x2="20" y2="12"/><line x1="8.5" y1="17.5" x2="20" y2="17.5"/><circle cx="4.6" cy="6.5" r="1.05" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.05" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.05" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M19.3 14.9a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></symbol>
@@ -42,11 +43,12 @@
   <div class="app-shell" id="appShell">
     <!-- 顶栏：隐藏标题栏后的拖动区；左侧 72px 为红绿灯空间 -->
     <header class="toolbar" id="toolbar">
+      <div class="mock-lights" aria-hidden="true"><span class="mock-light is-red"></span><span class="mock-light is-yellow"></span><span class="mock-light is-green"></span></div>
       <span class="toolbar-title" id="toolbarTitle" hidden>雨课助手</span>
       <div class="toolbar-actions">
         <span class="toolbar-sync">
           <span class="sync-dot is-idle" id="syncDot" aria-hidden="true"></span>
-          <span id="toolbarSyncText">最近同步：—</span>
+          <span id="toolbarSyncText">正在连接本地服务…</span>
         </span>
         <button class="btn btn-sm" type="button" id="btnRefreshState" aria-label="刷新状态">
           <svg class="icon" aria-hidden="true"><use href="#i-refresh" /></svg><span>刷新</span>
@@ -62,27 +64,23 @@
           <button class="nav-item is-active" type="button" role="tab" id="tab-overview" data-page="overview" aria-controls="page-overview" aria-selected="true" aria-label="概览">
             <svg class="icon nav-icon" aria-hidden="true"><use href="#i-grid" /></svg><span class="nav-text">概览</span><span class="nav-kbd" aria-hidden="true">⌘1</span>
           </button>
-          <button class="nav-item" type="button" role="tab" id="tab-script" data-page="script" aria-controls="page-script" aria-selected="false" aria-label="脚本">
-            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-code" /></svg><span class="nav-text">脚本</span><span class="nav-kbd" aria-hidden="true">⌘2</span>
+          <button class="nav-item" type="button" role="tab" id="tab-script" data-page="script" aria-controls="page-script" aria-selected="false" aria-label="刷课">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-play" /></svg><span class="nav-text">刷课</span><span class="nav-kbd" aria-hidden="true">⌘2</span>
           </button>
           <button class="nav-item" type="button" role="tab" id="tab-ai" data-page="ai" aria-controls="page-ai" aria-selected="false" aria-label="AI 配置">
             <svg class="icon nav-icon" aria-hidden="true"><use href="#i-key" /></svg><span class="nav-text">AI 配置</span><span class="nav-kbd" aria-hidden="true">⌘3</span>
           </button>
           <div class="nav-label" role="presentation">系统</div>
-          <button class="nav-item" type="button" role="tab" id="tab-logs" data-page="logs" aria-controls="page-logs" aria-selected="false" aria-label="运行日志">
-            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-list" /></svg><span class="nav-text">运行日志</span><span class="nav-kbd" aria-hidden="true">⌘4</span>
-          </button>
           <button class="nav-item" type="button" role="tab" id="tab-settings" data-page="settings" aria-controls="page-settings" aria-selected="false" aria-label="设置">
-            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-gear" /></svg><span class="nav-text">设置</span><span class="nav-kbd" aria-hidden="true">⌘5</span>
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-gear" /></svg><span class="nav-text">设置</span><span class="nav-kbd" aria-hidden="true">⌘4</span>
           </button>
         </nav>
 
         <div class="sidebar-footer">
-          <div class="mini-status">
-            <span class="mini-dot is-idle" id="miniDot" aria-hidden="true"></span>
-            <span class="mini-text" id="miniText">正在连接…</span>
+          <div class="sidebar-brand">
+            <span class="sidebar-brand-name">雨课助手</span>
+            <span class="sidebar-version mono" id="sidebarVersion">v—</span>
           </div>
-          <div class="sidebar-version mono" id="sidebarMeta">v—</div>
         </div>
       </div>
     </aside>
@@ -162,97 +160,91 @@
               <h2 class="group-title" id="groupQuick">快捷操作</h2>
               <div class="group-box rows-iconed">
                 <div class="row">
-                  <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-external" /></svg></span>
+                  <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-play" /></svg></span>
                   <div class="row-copy">
-                    <div class="row-title">打开雨课堂</div>
-                    <div class="row-desc mono" id="quickOpenDesc">https://yuketang.cn/</div>
+                    <div class="row-title">刷课准备</div>
+                    <div class="row-desc">安装脚本、打开课程目录</div>
                   </div>
                   <div class="row-control">
-                    <button class="btn btn-primary btn-sm" type="button" id="btnOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
+                    <button class="btn btn-sm" type="button" id="btnGoRun" aria-label="前往刷课">前往</button>
                   </div>
                 </div>
                 <div class="row">
                   <span class="row-icon is-purple" aria-hidden="true"><svg class="icon"><use href="#i-key" /></svg></span>
                   <div class="row-copy">
-                    <div class="row-title">AI 答题配置</div>
+                    <div class="row-title">AI 配置</div>
                     <div class="row-desc" id="aiRowDesc">—</div>
                   </div>
                   <div class="row-control">
-                    <button class="link-btn" type="button" id="btnGoAI" aria-label="打开 AI 配置">配置</button>
+                    <button class="btn btn-sm" type="button" id="btnGoAI" aria-label="前往 AI 配置">配置</button>
                   </div>
                 </div>
                 <div class="row">
-                  <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-list" /></svg></span>
+                  <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-external" /></svg></span>
                   <div class="row-copy">
-                    <div class="row-title">运行日志</div>
-                    <div class="row-desc">最近 200 条本地服务日志</div>
+                    <div class="row-title">打开雨课堂</div>
+                    <div class="row-desc">进入课程目录页，在网页里开始刷课</div>
                   </div>
                   <div class="row-control">
-                    <button class="link-btn" type="button" id="btnGoLogs" aria-label="查看运行日志">查看</button>
+                    <button class="btn btn-sm" type="button" id="btnGoOpenYuketang" aria-label="打开雨课堂">打开</button>
                   </div>
                 </div>
               </div>
             </section>
 
-            <section class="group" aria-labelledby="groupStart">
-              <h2 class="group-title" id="groupStart">快速开始</h2>
-              <div class="group-box">
-                <div class="step-row">
-                  <span class="step-num" id="stepService" aria-hidden="true"><span>1</span><svg class="icon"><use href="#i-check" /></svg></span>
-                  <div class="row-copy">
-                    <div class="row-title">启动本地服务</div>
-                    <div class="row-desc">启动后即可安装脚本并同步配置</div>
-                  </div>
-                </div>
-                <div class="step-row">
-                  <span class="step-num" id="stepScript" aria-hidden="true"><span>2</span><svg class="icon"><use href="#i-check" /></svg></span>
-                  <div class="row-copy">
-                    <div class="row-title">安装用户脚本</div>
-                    <div class="row-desc">浏览器装好 Tampermonkey 后点「重新安装」</div>
-                  </div>
-                </div>
-                <div class="step-row">
-                  <span class="step-num" aria-hidden="true"><span>3</span></span>
-                  <div class="row-copy">
-                    <div class="row-title">打开雨课堂</div>
-                    <div class="row-desc">进入课程目录页，点击页面上的开始刷课</div>
-                  </div>
-                </div>
+            <section class="group" aria-labelledby="groupRecent">
+              <h2 class="group-title" id="groupRecent">最近日志</h2>
+              <div class="log-card log-card-inline" aria-label="最近运行日志">
+                <div class="log-list" id="overviewLogList" role="log" aria-label="最近运行日志"></div>
               </div>
+              <p class="group-note" id="overviewLogEmpty" hidden>暂无运行记录，启动服务或安装脚本后会显示在这里。</p>
             </section>
           </div>
         </section>
 
-        <!-- 02 脚本 -->
+        <!-- 02 刷课 -->
         <section class="page" id="page-script" role="tabpanel" aria-labelledby="tab-script" data-page="script" hidden>
           <header class="page-head">
             <div class="page-heading">
-              <h1>脚本</h1>
-              <p class="page-sub">内置用户脚本的版本与安装</p>
+              <h1>刷课</h1>
+              <p class="page-sub">按顺序准备，然后在网页里开始</p>
             </div>
             <div class="page-head-side">
-              <button class="btn btn-sm" type="button" id="btnScriptOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
+              <button class="btn btn-primary btn-sm" type="button" id="btnScriptOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
             </div>
           </header>
 
-          <section class="group" aria-labelledby="groupInstall">
-            <h2 class="group-title" id="groupInstall">安装状态</h2>
+          <section class="group" aria-labelledby="groupPrepare">
+            <h2 class="group-title" id="groupPrepare">准备</h2>
             <div class="group-box rows-iconed">
               <div class="row">
-                <span class="row-icon is-green" aria-hidden="true"><svg class="icon"><use href="#i-download" /></svg></span>
+                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-download" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">浏览器扩展</div>
+                  <div class="row-desc">Chrome / Edge / Firefox 安装 Tampermonkey；Safari 用 App Store 版本</div>
+                </div>
+                <div class="row-control">
+                  <button class="link-btn" type="button" data-external="https://www.tampermonkey.net/" aria-label="打开 Tampermonkey 官网">
+                    <span>打开官网</span><svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="row">
+                <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-code" /></svg></span>
                 <div class="row-copy">
                   <div class="row-title">
-                    <span>安装状态</span>
+                    <span>用户脚本</span>
+                    <span class="row-title-extra mono" id="runScriptVersion">v—</span>
                     <span class="badge" id="installStateBadge"><span class="badge-dot" aria-hidden="true"></span><span id="installStateBadgeText">—</span></span>
                   </div>
                   <div class="row-desc" id="installHint">—</div>
                 </div>
                 <div class="row-control">
-                  <button class="btn btn-primary btn-sm" type="button" id="btnInstallFromScript" aria-label="在浏览器中重新安装脚本">重新安装</button>
+                  <button class="btn btn-sm btn-primary" type="button" id="btnInstallFromScript" aria-label="安装或更新用户脚本">安装脚本</button>
                 </div>
               </div>
               <div class="row">
-                <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-link" /></svg></span>
+                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-link" /></svg></span>
                 <div class="row-copy">
                   <div class="row-title">安装地址</div>
                   <div class="row-desc mono" id="installUrl">—</div>
@@ -263,72 +255,72 @@
                   </button>
                 </div>
               </div>
+              <div class="row">
+                <span class="row-icon is-purple" aria-hidden="true"><svg class="icon"><use href="#i-key" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">
+                    <span>AI 答题（可选）</span>
+                    <span class="badge" id="runAIBadge"><span class="badge-dot" aria-hidden="true"></span><span id="runAIBadgeText">—</span></span>
+                  </div>
+                  <div class="row-desc" id="runAIDesc">—</div>
+                </div>
+                <div class="row-control">
+                  <button class="btn btn-sm" type="button" id="btnGoAIConfig" aria-label="前往 AI 配置">去配置</button>
+                </div>
+              </div>
             </div>
           </section>
 
-          <section class="group" aria-labelledby="groupScriptInfo">
-            <h2 class="group-title" id="groupScriptInfo">脚本信息</h2>
+          <section class="group" aria-labelledby="groupStart">
+            <h2 class="group-title" id="groupStart">开始刷课</h2>
             <div class="group-box rows-iconed">
               <div class="row">
-                <span class="row-icon is-indigo" aria-hidden="true"><svg class="icon"><use href="#i-code" /></svg></span>
+                <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-external" /></svg></span>
                 <div class="row-copy">
-                  <div class="row-title">版本</div>
-                  <div class="row-desc" id="infoScriptLines">—</div>
-                </div>
-                <div class="row-control"><span class="row-value mono" id="infoScriptVersion">—</span></div>
-              </div>
-              <div class="row">
-                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-hash" /></svg></span>
-                <div class="row-copy">
-                  <div class="row-title">指纹</div>
-                  <div class="row-desc">SHA-256 前 8 位</div>
+                  <div class="row-title">打开雨课堂</div>
+                  <div class="row-desc mono" id="runOpenDesc">https://yuketang.cn/</div>
                 </div>
                 <div class="row-control">
-                  <span class="row-value mono" id="infoScriptHash">—</span>
-                  <button class="icon-btn" type="button" id="btnCopyHash" aria-label="复制脚本指纹" title="复制完整指纹">
-                    <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                  <button class="btn btn-primary btn-sm" type="button" id="btnRunOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
+                </div>
+              </div>
+              <div class="row">
+                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-play" /></svg></span>
+                <div class="row-copy">
+                  <div class="row-title">在网页里点开始刷课</div>
+                  <div class="row-desc">进入课程目录页，左下角面板点「开始刷课」；想停就点「停止刷课」</div>
+                </div>
+                <div class="row-control">
+                  <button class="link-btn" type="button" id="btnShowOnboardingFromRun" aria-label="查看新手教程">
+                    <span>查看教程</span><svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
                   </button>
                 </div>
               </div>
-              <div class="row">
-                <span class="row-icon is-blue" aria-hidden="true"><svg class="icon"><use href="#i-link" /></svg></span>
-                <div class="row-copy"><div class="row-title">匹配域名</div></div>
-                <div class="row-control"><span class="chips" id="infoScriptMatches"></span></div>
-              </div>
-              <div class="row">
-                <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-file" /></svg></span>
-                <div class="row-copy">
-                  <div class="row-title">来源</div>
-                  <div class="row-desc" id="infoScriptFile">—</div>
-                </div>
-                <div class="row-control"><span class="row-value">随 App 更新</span></div>
-              </div>
             </div>
           </section>
 
-          <section class="group" aria-labelledby="groupGuide">
-            <h2 class="group-title" id="groupGuide">Tampermonkey 安装说明</h2>
-            <div class="group-box">
-              <div class="step-row">
-                <span class="step-num" aria-hidden="true"><span>1</span></span>
-                <div class="row-copy">
-                  <div class="row-title">安装脚本管理器</div>
-                  <div class="row-desc">在 Chrome / Edge / Safari 中安装 Tampermonkey 扩展并启用</div>
-                </div>
+          <section class="group" aria-labelledby="groupRunLogs">
+            <h2 class="group-title" id="groupRunLogs">运行日志</h2>
+            <div class="log-card log-card-runtime" aria-label="运行日志">
+              <div class="log-card-head has-tools">
+                <span class="log-live"><span class="live-dot" aria-hidden="true"></span>日志流</span>
+                <span class="log-count" id="logCount">0 条</span>
+                <span class="log-card-path">
+                  <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
+                  <span class="mono" id="logPathText">~/.ykt/server.log</span>
+                </span>
+                <span class="log-head-tools">
+                  <button class="switch switch-sm" type="button" role="switch" id="switchAutoScroll" aria-checked="true" aria-label="自动滚动"><span class="switch-knob" aria-hidden="true"></span></button>
+                  <button class="icon-btn" type="button" id="btnClearLogs" aria-label="清空日志" title="清空日志"><svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg></button>
+                  <button class="icon-btn" type="button" id="btnRevealLog" aria-label="打开日志文件所在位置" title="打开日志文件所在位置"><svg class="icon" aria-hidden="true"><use href="#i-file" /></svg></button>
+                </span>
               </div>
-              <div class="step-row">
-                <span class="step-num" aria-hidden="true"><span>2</span></span>
-                <div class="row-copy">
-                  <div class="row-title">打开安装地址</div>
-                  <div class="row-desc">启动本地服务后点「重新安装」，或复制安装地址到浏览器打开</div>
-                </div>
-              </div>
-              <div class="step-row">
-                <span class="step-num" aria-hidden="true"><span>3</span></span>
-                <div class="row-copy">
-                  <div class="row-title">确认安装并打开雨课堂</div>
-                  <div class="row-desc">在 Tampermonkey 弹窗中点击「安装」，随后打开雨课堂即可看到脚本面板</div>
-                </div>
+              <div class="log-list" id="logList" role="log" aria-label="运行日志" tabindex="0"></div>
+              <div class="empty-state" id="logEmpty" hidden>
+                <span class="empty-icon" aria-hidden="true"><svg class="icon"><use href="#i-list" /></svg></span>
+                <span class="empty-title" id="logEmptyTitle">暂无日志</span>
+                <span class="empty-desc" id="logEmptyDesc">启动本地服务或安装脚本后，这里会显示运行记录。</span>
+                <button class="btn btn-sm" type="button" id="btnRetryLogs" aria-label="重试读取日志" hidden>重试</button>
               </div>
             </div>
           </section>
@@ -456,46 +448,6 @@
           <p class="group-note">配置保存在本机 <code>~/.ykt/config.json</code>；打开雨课堂时网页脚本自动同步，服务未运行时回退到浏览器 localStorage。</p>
         </section>
 
-        <!-- 04 运行日志 -->
-        <section class="page page-wide page-fixed" id="page-logs" role="tabpanel" aria-labelledby="tab-logs" data-page="logs" hidden>
-          <header class="page-head">
-            <div class="page-heading">
-              <h1>运行日志</h1>
-              <p class="page-sub">最近 200 条本地服务日志</p>
-            </div>
-            <div class="page-head-side log-tools">
-              <span class="tool-switch">
-                <span class="tool-switch-label" id="autoScrollLabel">自动滚动</span>
-                <button class="switch switch-sm" type="button" role="switch" id="switchAutoScroll" aria-checked="true" aria-labelledby="autoScrollLabel"><span class="switch-knob" aria-hidden="true"></span></button>
-              </span>
-              <button class="btn btn-sm" type="button" id="btnClearLogs" aria-label="清空日志">
-                <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg><span>清空</span>
-              </button>
-              <button class="btn btn-sm" type="button" id="btnRevealLog" aria-label="打开日志文件所在位置">
-                <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg><span>打开文件</span>
-              </button>
-            </div>
-          </header>
-
-          <div class="log-card" aria-label="运行日志列表">
-            <div class="log-card-head">
-              <span class="log-live"><span class="live-dot" aria-hidden="true"></span>日志流</span>
-              <span class="log-count" id="logCount">0 条</span>
-              <span class="log-card-path">
-                <svg class="icon" aria-hidden="true"><use href="#i-file" /></svg>
-                <span class="mono" id="logPathText">~/.ykt/server.log</span>
-              </span>
-            </div>
-            <div class="log-list" id="logList" role="log" aria-label="运行日志"></div>
-            <div class="empty-state" id="logEmpty" hidden>
-              <span class="empty-icon" aria-hidden="true"><svg class="icon"><use href="#i-list" /></svg></span>
-              <span class="empty-title" id="logEmptyTitle">暂无日志</span>
-              <span class="empty-desc" id="logEmptyDesc">启动本地服务或安装脚本后，这里会显示运行记录。</span>
-              <button class="btn btn-sm" type="button" id="btnRetryLogs" aria-label="重试读取日志" hidden>重试</button>
-            </div>
-          </div>
-        </section>
-
         <!-- 05 设置 -->
         <section class="page" id="page-settings" role="tabpanel" aria-labelledby="tab-settings" data-page="settings" hidden>
           <header class="page-head">
@@ -614,6 +566,48 @@
                         <button class="seg-btn" type="button" data-appearance="dark" aria-pressed="false" aria-label="使用深色外观">深色</button>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="group" aria-labelledby="groupScriptInfo">
+                <h2 class="group-title" id="groupScriptInfo">脚本信息</h2>
+                <div class="group-box rows-iconed">
+                  <div class="row">
+                    <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-code" /></svg></span>
+                    <div class="row-copy">
+                      <div class="row-title">版本</div>
+                      <div class="row-desc" id="infoScriptLines">—</div>
+                    </div>
+                    <div class="row-control"><span class="row-value mono" id="infoScriptVersion">—</span></div>
+                  </div>
+                  <div class="row">
+                    <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-hash" /></svg></span>
+                    <div class="row-copy">
+                      <div class="row-title">指纹</div>
+                      <div class="row-desc">SHA-256 前 8 位</div>
+                    </div>
+                    <div class="row-control">
+                      <span class="row-value mono" id="infoScriptHash">—</span>
+                      <button class="icon-btn" type="button" id="btnCopyHash" aria-label="复制脚本指纹" title="复制完整指纹">
+                        <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-link" /></svg></span>
+                    <div class="row-copy">
+                      <div class="row-title">匹配域名</div>
+                      <div class="chips" id="infoScriptMatches"></div>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-file" /></svg></span>
+                    <div class="row-copy">
+                      <div class="row-title">来源</div>
+                      <div class="row-desc" id="infoScriptFile">—</div>
+                    </div>
+                    <div class="row-control"><span class="row-value">随 App 更新</span></div>
                   </div>
                 </div>
               </section>

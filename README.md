@@ -18,10 +18,11 @@ Tampermonkey 用户脚本 + 原生桌面管理台。脚本负责在雨课堂页�
 - 在 App 内填写 AI API 地址 / Key / 模型 / 格式，打开雨课堂时脚本自动从本机同步
 - 运行日志、脚本版本与指纹、安装状态一目了然
 - 端口、外观（跟随系统 / 浅色 / 深色）、开机自启等设置
+- 任务式动线：概览看状态与快捷操作 → 刷课页按「准备 → 开始」走完 → 日志在刷课页兜底
 - 首次启动带分步新手教程：从装扩展、装脚本到开始刷课，按按钮走完即可，不需要写代码或开终端
 
-界面设计语言与同一作者的「超星助手」桌面端统一（unslop 方法：中性灰 + 单一系统蓝强调、
-系统设置式分组列表、彩色语义行图标、克制动效，不用渐变/发光/emoji/营销文案）。完整视觉规格见
+界面设计语言与同一作者的「超星助手」桌面端统一（unslop 方法：亮色纯白底黑字、暗色纯黑底白字，
+单一系统蓝强调；单色线性图标；任务式功能动线；不用渐变/发光/emoji/营销文案）。完整视觉规格见
 [`docs/DESIGN.md`](docs/DESIGN.md)；两个 App 并排使用应像同一套产品的两个模块。
 
 构建与运行：
@@ -94,6 +95,8 @@ git tag v1.1.0 && git push origin v1.1.0
 
 已知限制：App 未签名/未公证，首次分发仍可能被 Gatekeeper 拦截（右键打开）；自动更新只校验 SHA256 与 GitHub TLS，不提供 Sparkle 级签名链；Windows/Linux 的桌面 App 暂未纳入自动发布，CLI 用户可继续 `make cross-cli` 或下载 Release 资产。
 
+GitHub API 对本机 IP 偶尔会限流（未登录 60 次/小时）。如需更稳，可在启动 App 前设置环境变量 `GITHUB_TOKEN`，或 `YKT_UPDATE_TOKEN`，检查时就会带认证（5000 次/小时）。
+
 ## 新手教程（零基础）
 
 第一次打开 App 会自动弹出分步引导，文案只讲「点哪里、会发生什么」，不需要懂代码：
@@ -113,13 +116,13 @@ git tag v1.1.0 && git push origin v1.1.0
 | --- | --- |
 | ![概览浅色](docs/screenshots/overview-light.png) | ![概览深色](docs/screenshots/overview-dark.png) |
 
-| AI 配置 | 运行日志（深色日志仪表） |
+| 刷课（浅色） | 刷课（深色） |
 | --- | --- |
-| ![AI 配置](docs/screenshots/ai-light.png) | ![运行日志](docs/screenshots/logs-dark.png) |
+| ![刷课浅色](docs/screenshots/run-light.png) | ![刷课深色](docs/screenshots/run-dark.png) |
 
-| 设置（含软件更新） | 真实窗口（浅色） |
+| AI 配置 | 设置 |
 | --- | --- |
-| ![设置](docs/screenshots/settings-light.png) | ![真实窗口浅色](docs/screenshots/app-window-light.png) |
+| ![AI 配置](docs/screenshots/ai-light.png) | ![设置](docs/screenshots/settings-light.png) |
 
 | 网页内注入面板（浅色） | 网页内注入面板（深色） |
 | --- | --- |
@@ -128,6 +131,10 @@ git tag v1.1.0 && git push origin v1.1.0
 | 新手引导（浅色） | 新手引导（深色） |
 | --- | --- |
 | ![新手引导](docs/screenshots/onboarding-light.png) | ![新手引导深色](docs/screenshots/onboarding-dark.png) |
+
+| 真实窗口（浅色） | 真实窗口（深色） |
+| --- | --- |
+| ![真实窗口浅色](docs/screenshots/app-window-light.png) | ![真实窗口深色](docs/screenshots/app-window-dark.png) |
 
 ## 已适配雨课堂学校及网址
 

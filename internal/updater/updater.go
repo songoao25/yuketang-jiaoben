@@ -49,14 +49,20 @@ type Options struct {
 	Client         *http.Client
 	GOOS           string
 	GOARCH         string
+	Token          string // 可选 GitHub token，提高 API 限额
 }
 
 // NewOptions 返回默认检查参数；可用 YKT_UPDATE_API_URL 覆盖接口地址（测试/镜像）。
 func NewOptions(currentVersion string) Options {
 	apiURL := strings.TrimSpace(os.Getenv("YKT_UPDATE_API_URL"))
+	token := strings.TrimSpace(os.Getenv("YKT_UPDATE_TOKEN"))
+	if token == "" {
+		token = strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
+	}
 	return Options{
 		CurrentVersion: currentVersion,
 		APIURL:         apiURL,
+		Token:          token,
 	}
 }
 
@@ -135,6 +141,9 @@ func fetchLatest(ctx context.Context, opts Options) (*githubRelease, error) {
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", userAgent)
+	if opts.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+opts.Token)
+	}
 	resp, err := opts.Client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("检查更新失败（网络不可用或代理异常）: %w", err)
@@ -145,7 +154,7 @@ func fetchLatest(ctx context.Context, opts Options) (*githubRelease, error) {
 	case http.StatusNotFound:
 		return nil, errors.New("暂时没有可用的发布版本")
 	case http.StatusForbidden, http.StatusTooManyRequests:
-		return nil, errors.New("GitHub 接口请求受限（可能是速率限制），请稍后再试")
+		return nil, errors.New("GitHub 接口请求受限（可能是速率限制）；可设置 GITHUB_TOKEN 后重试，或稍后再试")
 	default:
 		return nil, fmt.Errorf("检查更新失败：GitHub 返回 HTTP %d", resp.StatusCode)
 	}
@@ -186,7 +195,7 @@ func checksumFor(ctx context.Context, opts Options, release *githubRelease, asse
 		if candidate.Name != checksumsAssetName {
 			continue
 		}
-		body, err := fetchText(ctx, opts.Client, candidate.BrowserDownloadURL, 1<<20)
+		body, err := fetchText(ctx, opts.Client, candidate.BrowserDownloadURL, opts.Token, 1<<20)
 		if err != nil {
 			return "", fmt.Errorf("下载校验文件失败: %w", err)
 		}
@@ -224,12 +233,15 @@ func checksumFromText(text, name string) string {
 	return ""
 }
 
-func fetchText(ctx context.Context, client *http.Client, url string, limit int64) (string, error) {
+func fetchText(ctx context.Context, client *http.Client, url, token string, limit int64) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", userAgent)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err

@@ -248,7 +248,7 @@ func buildAppZip(t *testing.T, version string) []byte {
 	writer := zip.NewWriter(buf)
 	files := map[string]string{
 		"雨课助手.app/Contents/Info.plist": plist,
-		"雨课助手.app/Contents/MacOS/ykt": "#!/bin/sh\nexit 0\n",
+		"雨课助手.app/Contents/MacOS/ykt":  "#!/bin/sh\nexit 0\n",
 	}
 	for name, content := range files {
 		w, err := writer.Create(name)
@@ -263,4 +263,24 @@ func buildAppZip(t *testing.T, version string) []byte {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
+}
+
+func TestCheckSendsToken(t *testing.T) {
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v1.1.0"})
+	}))
+	defer server.Close()
+	if _, err := Check(context.Background(), Options{
+		CurrentVersion: "1.1.0",
+		APIURL:         server.URL,
+		Client:         server.Client(),
+		Token:          "test-token",
+	}); err != nil {
+		t.Fatalf("Check 失败: %v", err)
+	}
+	if gotAuth != "Bearer test-token" {
+		t.Fatalf("Authorization = %q", gotAuth)
+	}
 }

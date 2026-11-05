@@ -201,6 +201,7 @@ func Run(args []string, env Env) int // 返回进程退出码
 - 版本以 release tag（`v1.1.0`）为准；下载后校验 SHA256、`CFBundleShortVersionString` 与 `CFBundleIdentifier`（`com.wails.ykt`）
 - 仅允许从 `/Applications`、`~/Applications` 下的正式 App 自替换；开发构建会返回明确错误
 - 测试可用 `YKT_UPDATE_API_URL` 覆盖 latest 接口，`YKT_UPDATE_DISABLE=1` 关闭检查/安装
+- 可选认证：`GITHUB_TOKEN` 或 `YKT_UPDATE_TOKEN` 会作为 `Authorization: Bearer` 发送，提高 GitHub API 限额
 
 | `ClearLogs()` | `error` | 清空内存与文件日志 |
 | `RevealPath(which string)` | `error` | `home`/`config`/`log` 三类路径，用系统文件管理器定位 |

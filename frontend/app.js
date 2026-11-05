@@ -9,19 +9,17 @@
   'use strict';
 
   var MOCK = new URLSearchParams(window.location.search).get('mock') === '1';
-  var PAGES = ['overview', 'script', 'ai', 'logs', 'settings'];
+  var PAGES = ['overview', 'script', 'ai', 'settings'];
   var PAGE_META = {
     overview: { title: '概览', sub: '本地服务、用户脚本与 AI 配置' },
-    script: { title: '脚本', sub: '内置用户脚本的版本与安装' },
+    script: { title: '刷课', sub: '按顺序准备，然后在网页里开始' },
     ai: { title: 'AI 配置', sub: '自动答题与图文讨论回复使用的模型' },
-    logs: { title: '运行日志', sub: '最近 200 条本地服务日志' },
     settings: { title: '设置', sub: '本机运行参数与外观' }
   };
   var PAGE_ACTIONS = {
     overview: [],
     script: ['btnScriptOpenYuketang'],
     ai: ['aiDirtyChip', 'btnSaveAI'],
-    logs: [],
     settings: ['settingsDirtyChip', 'btnSaveSettings']
   };
 
@@ -104,7 +102,7 @@
   function buildMockState() {
     var now = Date.now();
     return {
-      appVersion: '1.1.0',
+      appVersion: '1.1.1',
       platform: 'darwin',
       homeDir: '/Users/demo/.ykt',
       configPath: '/Users/demo/.ykt/config.json',
@@ -283,17 +281,14 @@
 
   function renderSidebar() {
     if (!state) return;
-    var running = state.service.running;
-    text('#miniText', running ? '本地服务运行中 · ' + state.service.port : state.service.error ? '本地服务启动失败' : '本地服务未运行');
-    text('#sidebarMeta', 'v' + (state.appVersion || '—'));
-    var dot = $('#miniDot');
-    if (dot) dot.className = 'mini-dot ' + (running ? 'is-running' : state.service.error ? 'is-error' : 'is-idle');
+    text('#sidebarVersion', 'v' + (state.appVersion || '—'));
   }
   function renderToolbar() {
     if (!state) return;
-    text('#toolbarSyncText', '最近同步：' + fmtRelative(state.lastSyncAt));
+    var svc = state.service;
+    text('#toolbarSyncText', svc.running ? '本地服务运行中 · ' + svc.port : svc.error ? '本地服务启动失败' : '本地服务未运行');
     var dot = $('#syncDot');
-    if (dot) dot.className = 'sync-dot ' + (state.service.running ? 'is-running' : '');
+    if (dot) dot.className = 'sync-dot ' + (svc.running ? 'is-running' : svc.error ? 'is-error' : '');
     var title = $('#toolbarTitle');
     if (title) title.hidden = state.platform === 'darwin';
   }
@@ -309,7 +304,7 @@
     var install = state.install;
     var script = state.script;
 
-    text('#serviceRowTitle', svc.running ? '本地服务' : '本地服务');
+    text('#serviceRowTitle', '本地服务');
     text('#serviceRowDesc', svc.running
       ? '端口 ' + svc.port + ' · PID ' + svc.pid + ' · 已运行 ' + fmtUptime(liveUptime())
       : svc.error ? '启动失败：' + svc.error : '端口 ' + state.settings.port + ' · 启动后开始计时');
@@ -333,12 +328,10 @@
       ? '最近同步 ' + fmtRelative(state.lastSyncAt) + ' · ' + (state.syncUrl || 'http://127.0.0.1:' + svc.port + '/api/config')
       : '服务未运行，启动后可同步');
 
-    text('#quickOpenDesc', state.settings.defaultUrl || 'https://yuketang.cn/');
     text('#aiRowDesc', (state.ai.model || '未设置模型') + ' · ' + formatLabel(state.ai.apiFormat) + ' · 自动作答' + (state.features.autoAI ? '已开启' : '已关闭'));
-
-    setStepDone('#stepService', svc.running);
-    setStepDone('#stepScript', install.installed && install.inSync);
+    if (currentPage === 'overview') loadRecentLogs('#overviewLogList', '#overviewLogEmpty', null, 5);
   }
+
   function liveUptime() {
     if (!state) return 0;
     return (Number(state.service.uptime) || 0) + (stateFetchedAt ? (Date.now() - stateFetchedAt) / 1000 : 0);
@@ -367,9 +360,24 @@
     if (!state) return;
     var script = state.script;
     var install = state.install;
+    var ai = state.ai;
+    var aiConfigured = !!(ai && ai.key && ai.key !== 'sk-xxxxxxx');
+
     setBadge('#installStateBadge', '#installStateBadgeText', install.installed && install.inSync ? 'success' : install.installed ? 'warning' : 'neutral', install.installed && install.inSync ? '已安装' : install.installed ? '需更新' : '未安装');
     text('#installHint', install.note || '尚未在浏览器中安装脚本');
     text('#installUrl', installURL() || '服务未运行，暂无安装地址');
+    text('#runScriptVersion', 'v' + (script.version || '—'));
+    var installBtn = $('#btnInstallFromScript');
+    if (installBtn) installBtn.textContent = install.installed ? (install.inSync ? '重新安装' : '更新脚本') : '安装脚本';
+
+    setBadge('#runAIBadge', '#runAIBadgeText', aiConfigured ? 'success' : 'neutral', aiConfigured ? '已配置' : '未配置');
+    text('#runAIDesc', aiConfigured
+      ? (ai.model || '—') + ' · ' + formatLabel(ai.apiFormat) + ' · 自动作答' + (state.features.autoAI ? '已开启' : '已关闭')
+      : '不配置也能正常刷课');
+    text('#runOpenDesc', state.settings.defaultUrl || 'https://yuketang.cn/');
+    if (currentPage === 'script' && state) loadLogs();
+
+    /* 设置页里的脚本信息 */
     text('#infoScriptVersion', 'v' + (script.version || '—'));
     text('#infoScriptLines', (script.lines || 0).toLocaleString('zh-CN') + ' 行 · ' + (script.author || '—'));
     text('#infoScriptHash', script.shortHash || '—');
@@ -394,6 +402,54 @@
     }
     var hashBtn = $('#btnCopyHash');
     if (hashBtn) hashBtn.title = script.hash ? '复制完整指纹：' + script.hash : '暂无指纹';
+  }
+
+  /* ───────────── 渲染：最近日志 ───────────── */
+  function appendLogPreview(list, entry) {
+    var line = document.createElement('div');
+    line.className = 'log-row lv-' + levelClass(entry.level);
+    var time = document.createElement('span');
+    time.className = 'log-time';
+    time.textContent = fmtClock(entry.time);
+    var level = document.createElement('span');
+    level.className = 'log-level';
+    level.textContent = levelLabel(entry.level);
+    var message = document.createElement('span');
+    message.className = 'log-text';
+    message.textContent = entry.message;
+    line.appendChild(time);
+    line.appendChild(level);
+    line.appendChild(message);
+    list.appendChild(line);
+  }
+
+  function renderLogPreview(listSel, emptySel, countSel, entries) {
+    var list = $(listSel);
+    if (!list) return;
+    list.textContent = '';
+    var empty = emptySel ? $(emptySel) : null;
+    if (!entries || !entries.length) {
+      if (empty) empty.hidden = false;
+      if (countSel) text(countSel, '0 条');
+      return;
+    }
+    if (empty) empty.hidden = true;
+    if (countSel) text(countSel, entries.length + ' 条');
+    entries.forEach(function (entry) { appendLogPreview(list, entry); });
+  }
+
+  function loadRecentLogs(listSel, emptySel, countSel, limit) {
+    if (!state) return;
+    if (MOCK) {
+      renderLogPreview(listSel, emptySel, countSel, normalizeLogs(mockLogs.slice(-limit)));
+      return;
+    }
+    requireBindings().GetLogs(limit).then(function (raw) {
+      var entries = (Array.isArray(raw) ? raw : []).map(normalizeLogEntry).sort(function (a, b) { return a.time - b.time; }).slice(-limit);
+      renderLogPreview(listSel, emptySel, countSel, entries);
+    }).catch(function () {
+      renderLogPreview(listSel, emptySel, countSel, []);
+    });
   }
 
   /* ───────────── 渲染：表单 ───────────── */
@@ -710,7 +766,7 @@
     renderScriptPage();
     if (!aiDirty) fillAIForm();
     if (!settingsDirty) fillSettingsForm();
-    if (currentPage === 'logs') renderLogs();
+    if (currentPage === 'script') renderLogs();
     maybeShowOnboarding();
   }
 
@@ -795,7 +851,7 @@
   function startLogPolling() {
     stopLogPolling();
     logTimer = window.setInterval(function () {
-      if (document.hidden || currentPage !== 'logs') return;
+      if (document.hidden || currentPage !== 'script') return;
       loadLogs();
     }, 4000);
   }
@@ -840,13 +896,14 @@
     });
     var scroll = $('#mainScroll');
     if (scroll) {
-      scroll.classList.toggle('is-fixed', page === 'logs');
+      scroll.classList.toggle('is-fixed', false);
       if (!opts || opts.keepScroll !== true) scroll.scrollTop = 0;
     }
-    if (page === 'logs') { if (state) loadLogs(); startLogPolling(); }
+    if (page === 'script') { if (state) loadLogs(); startLogPolling(); }
     else stopLogPolling();
     if (page === 'ai' && !aiDirty) fillAIForm();
     if (page === 'settings' && !settingsDirty) fillSettingsForm();
+    if (page === 'overview') loadRecentLogs('#overviewLogList', '#overviewLogEmpty', null, 5);
     if (page === 'settings' && !MOCK) {
       requireBindings().GetUpdateInfo().then(function (info) {
         if (info && (info.latestVersion || info.currentVersion)) {
@@ -1087,7 +1144,7 @@
     refreshPending = true;
     window.setTimeout(function () {
       refreshPending = false;
-      refreshState({ silent: true }).then(function (ok) { if (ok && currentPage === 'logs') loadLogs(); });
+      refreshState({ silent: true }).then(function (ok) { if (ok && currentPage === 'script') loadLogs(); });
     }, 180);
   }
   function startPolling() {
@@ -1101,9 +1158,7 @@
     hideSkeleton();
     text('#serviceRowDesc', message + '，浏览器预览请使用 ?mock=1');
     setBadge('#serviceBadge', '#serviceBadgeText', 'danger', '未连接');
-    text('#miniText', '未连接到 App 后端');
-    var dot = $('#miniDot');
-    if (dot) dot.className = 'mini-dot is-error';
+
     toast('未检测到 App 绑定，请通过桌面 App 打开', 'error');
   }
 
@@ -1155,7 +1210,7 @@
       trapModalFocus(event);
       var mod = event.metaKey || event.ctrlKey;
       if (!mod || event.altKey || event.shiftKey) return;
-      var index = ['1', '2', '3', '4', '5'].indexOf(event.key);
+      var index = ['1', '2', '3', '4'].indexOf(event.key);
       if (index >= 0) { event.preventDefault(); navigate(PAGES[index]); }
     });
 
@@ -1177,18 +1232,14 @@
     if (btnInstall) btnInstall.addEventListener('click', function () { doInstallScript(btnInstall); });
     var btnOpen = $('#btnOpenYuketang');
     if (btnOpen) btnOpen.addEventListener('click', function () { doOpenYuketang(btnOpen); });
-    var btnGoAI = $('#btnGoAI');
-    if (btnGoAI) btnGoAI.addEventListener('click', function () { navigate('ai'); });
-    var btnGoLogs = $('#btnGoLogs');
-    if (btnGoLogs) btnGoLogs.addEventListener('click', function () { navigate('logs'); });
     var btnRefreshState = $('#btnRefreshState');
     if (btnRefreshState) {
       btnRefreshState.addEventListener('click', function () {
         runBtn(btnRefreshState, function () {
-          if (MOCK) return wait(180).then(function () { refreshMock(); if (currentPage === 'logs') loadLogs(); toast('状态已刷新', 'success'); });
+          if (MOCK) return wait(180).then(function () { refreshMock(); if (currentPage === 'script') loadLogs(); toast('状态已刷新', 'success'); });
           return refreshState({ silent: true }).then(function (ok) {
             if (!ok) throw new Error('读取状态失败');
-            if (currentPage === 'logs') loadLogs();
+            if (currentPage === 'script') loadLogs();
             toast('状态已刷新', 'success');
           });
         }, '刷新状态');
@@ -1196,6 +1247,18 @@
     }
 
     /* 脚本页 */
+    var goRun = $('#btnGoRun');
+    if (goRun) goRun.addEventListener('click', function () { navigate('script'); });
+    var goAI = $('#btnGoAI');
+    if (goAI) goAI.addEventListener('click', function () { navigate('ai'); });
+    var goOpen = $('#btnGoOpenYuketang');
+    if (goOpen) goOpen.addEventListener('click', function () { doOpenYuketang(goOpen); });
+    var runOpen = $('#btnRunOpenYuketang');
+    if (runOpen) runOpen.addEventListener('click', function () { doOpenYuketang(runOpen); });
+    var goAIConfig = $('#btnGoAIConfig');
+    if (goAIConfig) goAIConfig.addEventListener('click', function () { navigate('ai'); });
+    var showOnboardingFromRun = $('#btnShowOnboardingFromRun');
+    if (showOnboardingFromRun) showOnboardingFromRun.addEventListener('click', onboardingOpen);
     var btnScriptOpen = $('#btnScriptOpenYuketang');
     if (btnScriptOpen) btnScriptOpen.addEventListener('click', function () { doOpenYuketang(btnScriptOpen); });
     var btnInstallFromScript = $('#btnInstallFromScript');
@@ -1307,7 +1370,7 @@
     document.addEventListener('visibilitychange', function () {
       if (document.hidden || MOCK) return;
       refreshState({ silent: true });
-      if (currentPage === 'logs') loadLogs();
+      if (currentPage === 'script') loadLogs();
     });
   }
 
@@ -1327,7 +1390,7 @@
           break;
         case 'save': navigate('ai'); toast('AI 配置已保存', 'success'); break;
         case 'clear':
-          navigate('logs');
+          navigate('script');
           openConfirm({ title: '清空运行日志？', message: '将删除本机日志文件中的全部记录，此操作不可撤销。', confirmText: '清空', danger: true, onConfirm: function () { toast('日志已清空', 'success'); } });
           break;
         case 'stopped': mockStopService(); refreshMock(); break;
@@ -1347,7 +1410,7 @@
     if (MOCK) {
       window.setTimeout(function () {
         applyState(normalizeState(mockState));
-        if (currentPage === 'logs') loadLogs();
+        if (currentPage === 'script') loadLogs();
         runDemo(new URLSearchParams(window.location.search).get('demo'));
       }, 420);
     } else {
@@ -1365,7 +1428,7 @@
           } catch (e) { /* 轮询兜底 */ }
         }
         startPolling();
-        if (currentPage === 'logs') loadLogs();
+        if (currentPage === 'script') loadLogs();
       });
     }
 

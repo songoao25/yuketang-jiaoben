@@ -1,4 +1,4 @@
-# 雨课助手 · 统一设计语言 v3（与「超星助手」共享 · unslop）
+# 雨课助手 · 统一设计语言 v3（与「超星助手」共享 · unslop · 纯白/纯黑主题）
 
 > 两个桌面工具（雨课助手 ykt / 超星助手 chaoxing）共用同一套设计语言，
 > 用 unslop 方法去掉 AI 味，做成成熟、精致、符合 macOS 设计的界面；两个 App 并排看应像同一套产品的两个模块。
@@ -19,29 +19,29 @@
 - **签名**（全站一致，两 App 共用）：① 30px 彩色 squircle 行图标（系统设置同款）；
   ② 页头 h1 + 一行说明 + 右侧操作；③ 侧栏底部状态圆点 + 版本号；④ 快捷键提示 ⌘1…。
 
-## 1. 设计令牌（与 ykt 完全一致，亮/暗）
+## 1. 设计令牌（与 ykt 完全一致；亮色纯白底黑字，暗色纯黑底白字）
 
 ```css
 :root {
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* 亮色 */
-  --bg: #f5f5f7;
-  --sidebar: #ececf0;
-  --sidebar-glass: rgba(246, 246, 248, 0.72);
-  --sidebar-border: rgba(0, 0, 0, 0.08);
+  /* 亮色：纯白底黑字（与超星助手完全一致） */
+  --bg: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-glass: rgba(255, 255, 255, 0.86);
+  --sidebar-border: rgba(0, 0, 0, 0.10);
   --card: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.04);
-  --card-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --inset: rgba(120, 120, 128, 0.08);
-  --row-hover: rgba(0, 0, 0, 0.03);
-  --label: #1d1d1f;
-  --label-2: #6e6e73;
-  --label-3: #8e8e93;
-  --separator: #e5e5ea;
-  --fill: rgba(120, 120, 128, 0.08);
-  --fill-2: rgba(120, 120, 128, 0.14);
+  --card-border: rgba(0, 0, 0, 0.10);
+  --card-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --inset: rgba(0, 0, 0, 0.04);
+  --row-hover: rgba(0, 0, 0, 0.035);
+  --label: #000000;
+  --label-2: #4b4b4b;
+  --label-3: #767676;
+  --separator: #e3e3e3;
+  --fill: rgba(0, 0, 0, 0.045);
+  --fill-2: rgba(0, 0, 0, 0.08);
   --accent: #007aff;
   --accent-hover: #0a84ff;
   --accent-soft: rgba(0, 122, 255, 0.12);
@@ -49,7 +49,7 @@
   --orange: #ff9500; --orange-text: #b25000; --orange-soft: rgba(255, 149, 0, 0.14);
   --red: #ff3b30;    --red-text: #d70015;    --red-soft: rgba(255, 59, 48, 0.12);
   --purple: #af52de; --indigo: #5856d6;      --gray: #8e8e93;
-  --field-bg: #ffffff; --field-border: #d1d1d6;
+  --field-bg: #ffffff; --field-border: #c6c6c8;
   --btn-bg: rgba(0, 0, 0, 0.05); --btn-hover: rgba(0, 0, 0, 0.08); --btn-active: rgba(0, 0, 0, 0.12);
   --switch-off: #e9e9ea;
   --focus-ring: rgba(0, 122, 255, 0.32);
@@ -59,25 +59,25 @@
   --sk-base: rgba(0, 0, 0, 0.05); --sk-shine: rgba(255, 255, 255, 0.6);
 }
 
-/* 暗色（prefers-color-scheme: dark，或 data-theme="dark"） */
---bg: #1c1c1e;        --sidebar: #232326;      --sidebar-glass: rgba(35, 35, 38, 0.72);
---sidebar-border: rgba(255,255,255,0.08);      --card: #2c2c2e;
---card-border: rgba(255,255,255,0.06);         --card-shadow: 0 1px 2px rgba(0,0,0,0.30);
---inset: rgba(255,255,255,0.06);               --row-hover: rgba(255,255,255,0.04);
---label: #ffffff; --label-2: #98989d; --label-3: #6c6c70; --separator: #3a3a3c;
+/* 暗色：Apple 深色语义色（不用纯黑，保证可读性） */
+--bg: #1c1c1e;        --sidebar: #232326;      --sidebar-glass: rgba(35,35,38,0.82);
+--sidebar-border: rgba(255,255,255,0.14);      --card: #2c2c2e;
+--card-border: rgba(255,255,255,0.10);         --card-shadow: 0 1px 2px rgba(0,0,0,0.30);
+--inset: rgba(255,255,255,0.07);               --row-hover: rgba(255,255,255,0.055);
+--label: #ffffff; --label-2: #a1a1a6; --label-3: #7c7c82; --separator: #38383a;
 --fill: rgba(255,255,255,0.07); --fill-2: rgba(255,255,255,0.12);
 --accent: #0a84ff; --accent-hover: #3d9bff; --accent-soft: rgba(10,132,255,0.22);
 --green: #30d158; --orange: #ff9f0a; --red: #ff453a; --purple: #bf5af2; --indigo: #7d7aff;
---field-bg: #1c1c1e; --field-border: #48484a;
+--field-bg: #000000; --field-border: #3a3a3a;
 --btn-bg: rgba(255,255,255,0.08); --btn-hover: rgba(255,255,255,0.12); --btn-active: rgba(255,255,255,0.16);
---switch-off: #39393d; --focus-ring: rgba(10,132,255,0.45);
+--switch-off: #3a3a3a; --focus-ring: rgba(10,132,255,0.45);
 --scroll-thumb: rgba(255,255,255,0.20); --scroll-thumb-hover: rgba(255,255,255,0.32);
 --modal-shadow: 0 20px 60px rgba(0,0,0,0.5);
 ```
 
-字体：正文 13px/1.45；页头 h1 22px/600 letter-spacing -0.015em；page-sub 12px `--label-2`；
-row-title 13px；row-desc 11px `--label-2`；mono 数字 tabular-nums；日志 11.5px mono。
-圆角：控件 6/7px，分组卡 10px，弹层 12px，行图标 8px，小图标按钮 5px。
+字体：字号阶 11 / 12 / 13 / 15 / 17 / 22 / 28（400/500/600）；页头 h1 22px/600；
+page-sub 12px `--label-2`；row-title 13px；row-desc 11px；控件文字 12.5、日志 mono 11.5 为既有例外。
+数字用 tabular-nums；中文正文行高 1.65。圆角：控件 6/7px，分组卡 10px，弹层 12/16px，行图标 8px。
 阴影：只用 `--card-shadow` 与 `--modal-shadow`，禁止彩色阴影/发光。
 
 ## 2. 窗口外壳（两个 App 相同）
@@ -146,35 +146,25 @@ row-title 13px；row-desc 11px `--label-2`；mono 数字 tabular-nums；日志 1
 - **Skeleton**：`.page-skeleton` + `.sk-line/.sk-box` shimmer 1.5s，首屏加载用。
 - **About 头**：40px 圆角 9 图标 + 名称 14/600 + 版本 11 mono。
 
-## 6. 页面映射（ykt 版）
+## 6. 页面映射（ykt 版，与超星助手同构）
 
-侧栏分组：`工作台` → 概览(⌘1)/脚本(⌘2)/AI 配置(⌘3)；`系统` → 运行日志(⌘4)/设置(⌘5)。
-底部状态点 + 脚本版本；toolbar 右侧：最近同步时间 + 刷新。
+侧栏 4 项：`工作台` → 概览(⌘1) / 刷课(⌘2) / AI 配置(⌘3)；`系统` → 设置(⌘4)。
+侧栏底部：品牌名 + 版本；toolbar 右侧：本地服务状态点 + 状态文字 + 刷新。
+**没有独立日志页**：日志并入「刷课」页底部，与超星助手「日志放在刷课页」的动线一致。
 
-- **概览**：h1 概览 / 副标题「本地服务、用户脚本与 AI 配置」；
-  分组「运行状态」带图标行：
-  - 本地服务：row-icon 蓝，状态 badge（运行中/已停止）+ 端口 / PID / 运行时长（mono），
-    行内按钮：启动（btn-primary）或停止/重启（次级）；
-  - 用户脚本：row-icon 靛，版本 v3.0.8 + 指纹短码（mono）+ 安装状态 badge（已安装/待重装），
-    行内「重新安装」；
-  - 配置同步：row-icon 绿，状态 badge（已开启/已关闭）+ 最近同步时间 + `127.0.0.1:8899`（mono）。
-  分组「快捷操作」：打开雨课堂（右侧 btn-primary）、AI 配置、运行日志；
-  分组「快速开始」：step-row 三步（启动服务/安装脚本/打开雨课堂），完成态绿底白勾 + 安静说明；
-  未运行 / 脚本待更新时用 group-note 横幅写清后果与下一步，不用大色块。
-- **脚本**：h1 脚本 / 副标题「Tampermonkey 用户脚本」；页头右侧「打开雨课堂」；
-  分组「安装状态」「脚本信息」「Tampermonkey 安装步骤」：行内 row-icon + 版本/行数/指纹/匹配域名（mono）、
-  安装地址（mono + 复制按钮）、重新安装；不出现彩色大徽章。
-- **AI 配置**：h1 AI 配置 / 副标题「自动答题与图文讨论回复使用的模型」；页头右侧「保存配置」btn-primary；
-  分组「服务商」（预设 select + 说明 text）、「接口」（API 地址 input-wide / 模型 / 格式 / 认证方式 / Key + 显示切换）、
-  「脚本功能」（两个 switch 行 + 说明）；底部 group-note 说明配置保存位置与同步行为。
-- **运行日志**：page-wide；h1 运行日志 / 副标题「最近 200 条本地服务日志」；
-  v3 log-card：head 36px（live 点 + 条数 + 日志路径 mono 10 + 自动滚动 switch / 刷新 / 清空 / 日志文件），
-  行 grid `62px 50px 1fr`、mono 11.5、level 用 accent/orange-text/red-text/green-text/label-3、hover `--fill`；
-  空态 empty-state；清空二次确认 modal。
-- **设置**：settings-layout 两栏（1.05fr / 1fr，≤900px 单栏）；
-  分组「服务」（端口 8899–8910 select、启动时自动启动服务 switch、启用脚本配置同步 switch）、
-  「站点」（默认网址 input-wide）、「外观」（跟随系统/浅色/深色 分段控件）、
-  「数据与关于」（打开配置目录/日志文件 link-btn，关于 about-head：App v1.0.1 · 脚本 v3.0.8 · GPL-3.0 · 上游仓库）。
+- **概览**：h1 概览 / 副标题「本地服务、用户脚本与 AI 配置」。
+  - 分组「运行状态」3 行：本地服务（端口 / PID / 运行时长，行内启动或停止/重启）、用户脚本（版本 + 指纹 + 安装状态，行内重新安装）、配置同步（开关 + 最近同步 + 同步地址）。
+  - 分组「快捷操作」3 行：刷课准备（去刷课页）、AI 配置（去 AI 页）、打开雨课堂。
+  - 分组「最近日志」：5 条只读预览；完整日志在刷课页。
+- **刷课**：h1 刷课 / 副标题「按顺序准备，然后在网页里开始」；页头右侧「打开雨课堂」。
+  - 「准备」：浏览器扩展（Tampermonkey 官网外链）、用户脚本（版本 + 安装状态 + 重新安装）、安装地址（复制）、AI 答题（可选，去配置）。
+  - 「开始刷课」：打开雨课堂；网页内操作说明 + 查看教程。
+  - 「运行日志」：完整 log-card（自动滚动 / 清空 / 打开文件 / 重试），固定高度 340px 内滚动。
+- **AI 配置**：页头右侧保存；服务商 / 接口 / 脚本功能三组。
+- **设置**：两栏；左列服务、站点、更新、帮助，右列外观、脚本信息、数据与关于。
+- **新手教程**：5 步，可在「设置 → 帮助」重开。
+
+共享动线原则：先看状态 → 按「准备 → 开始」走 → 日志兜底；每页只有一个主按钮。
 
 ## 7. 文案（与 ykt 语气一致）
 
@@ -193,12 +183,12 @@ row-title 13px；row-desc 11px `--label-2`；mono 数字 tabular-nums；日志 1
 ## 8.5 新手教程组件（两个 App 共用）
 
 - 遮罩：`rgba(0,0,0,.28)` + `blur(2px)`，点击遮罩视为跳过。
-- 卡片：480px 宽、圆角 16、`--card` 底、`--modal-shadow`、padding `22px 24px 18px`。
-- 顶部：App 图标（40px 圆角 9，暖白纸 + 墨色单字）+ 右侧进度 `1 / 5`（11px mono `--label-3`）。
-- 标题：17px / 600，行高 1.35；正文 13px / 1.75 `--label-2`；要点列表 12.5px / 1.6，5px 系统蓝圆点。
-- 进度点：6px，未激活 `--fill-2`、激活 `--accent`，上 18 / 下 14。
-- 底部操作：顶部 1px hairline；左侧「跳过教程」为透明文字按钮，右侧「上一步 / 下一步（开始使用）」。
-- 底部提示固定一句：`以后可在「设置 → 帮助」重新打开本教程`（10.5px `--label-3`）。
+- 卡片：480px 宽、圆角 16、`--card` 底、`--modal-shadow`、padding `24px 24px 20px`；始终水平/垂直居中，小窗口 `max-height: calc(100vh - 48px)` 内滚动。
+- 顶部：App 图标（40px 圆角 9，随黑白主题：白底黑字 / 黑底白字）+ 右侧进度 `1 / 5`（11px mono `--label-3`）；标题距顶部 16px。
+- 标题：17px / 600，行高 1.35，下间距 8px；正文 13px / 1.75 `--label-2`；要点列表 12px / 1.6，5px 系统蓝圆点。
+- 进度点：6px，未激活 `--fill-2`、激活 `--accent`，上 20 / 下 16。
+- 底部操作：顶部 1px hairline、上内边距 16px；左侧「跳过教程」为透明文字按钮，右侧「上一步 / 下一步（开始使用）」。
+- 底部提示固定一句：`以后可在「设置 → 帮助」重新打开本教程`（11px `--label-3`，上间距 12px）。
 - 键盘：Esc 完成/跳过，→ 或 Enter 下一步，← 上一步。
 - 文案只写「点哪里、会发生什么」，不用营销词与感叹号；每步最多 3 条要点，可选一个操作按钮（打开官网 / 安装脚本 / 打开雨课堂）。
 
