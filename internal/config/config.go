@@ -13,6 +13,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -175,7 +176,8 @@ func (s *Store) readRawConfig() []byte {
 	return data
 }
 
-// parseFileConfig 解析 config.json；失败时返回空结构（不报错）。
+// parseFileConfig 解析 config.json；失败时把损坏文件备份一份，再返回空结构。
+// 备份保证后续保存不会静默覆盖用户原来的配置（可从 .corrupt-* 恢复）。
 func (s *Store) parseFileConfig() fileConfig {
 	data := s.readRawConfig()
 	if len(data) == 0 {
@@ -183,9 +185,24 @@ func (s *Store) parseFileConfig() fileConfig {
 	}
 	var cfg fileConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
+		s.backupCorruptConfig()
 		return fileConfig{}
 	}
 	return cfg
+}
+
+// backupCorruptConfig 把无法解析的 config.json 复制成带时间戳的备份（只备份一次）。
+func (s *Store) backupCorruptConfig() {
+	path := s.ConfigPath()
+	data, err := os.ReadFile(path)
+	if err != nil || len(bytes.TrimSpace(data)) == 0 {
+		return
+	}
+	backup := path + ".corrupt-" + time.Now().Format("20060102-150405")
+	if existing, err := os.Stat(backup); err == nil && existing.Size() > 0 {
+		return
+	}
+	_ = os.WriteFile(backup, data, 0o600)
 }
 
 // LoadSettings 读取设置，缺失字段用默认值填充；读取或解析失败返回默认值。
@@ -267,10 +284,8 @@ func (s *Store) SaveSettings(settings model.Settings) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cfg := s.parseFileConfig()
 	next := settings
-	cfg.Settings = &next
-	return s.writeConfig(cfg)
+	return s.writeConfigSection("settings", next)
 }
 
 // LoadAIConfig 读取 AI 配置；缺失或损坏时返回零值。
@@ -286,10 +301,8 @@ func (s *Store) LoadAIConfig() model.AIConfig {
 func (s *Store) SaveAIConfig(ai model.AIConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cfg := s.parseFileConfig()
 	next := ai
-	cfg.AI = &next
-	return s.writeConfig(cfg)
+	return s.writeConfigSection("ai", next)
 }
 
 // LoadFeatures 读取功能开关；缺失或损坏时返回零值（全部关闭）。
@@ -305,10 +318,8 @@ func (s *Store) LoadFeatures() model.FeatureConfig {
 func (s *Store) SaveFeatures(features model.FeatureConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cfg := s.parseFileConfig()
 	next := features
-	cfg.Features = &next
-	return s.writeConfig(cfg)
+	return s.writeConfigSection("features", next)
 }
 
 // HasConfigSection 报告 config.json 顶层是否存在指定段（"ai" / "features" 等）。
@@ -337,14 +348,47 @@ func (s *Store) HasUserConfig() bool {
 	return s.HasConfigSection("ai") || s.HasConfigSection("features")
 }
 
-// writeConfig 原子写入 config.json。
-func (s *Store) writeConfig(cfg fileConfig) error {
-	data, err := json.MarshalIndent(cfg, "", "  ")
+// writeConfigSection 只更新 config.json 的一个顶层段，保留其他段与未知字段。
+// 如果现有文件损坏：先备份，再拒绝覆盖并返回错误，避免一次保存把整份配置清空。
+func (s *Store) writeConfigSection(section string, value any) error {
+	section = strings.TrimSpace(section)
+	if section == "" {
+		return errors.New("配置段不能为空")
+	}
+	raw := map[string]json.RawMessage{}
+	data, err := os.ReadFile(s.ConfigPath())
+	switch {
+	case err == nil && len(bytes.TrimSpace(data)) > 0:
+		if unmarshalErr := json.Unmarshal(data, &raw); unmarshalErr != nil {
+			// 损坏文件先留 .corrupt-* 备份，再按空配置继续写（备份可恢复，不会静默丢失）。
+			s.backupCorruptConfig()
+			raw = map[string]json.RawMessage{}
+		}
+	case err != nil && !errors.Is(err, os.ErrNotExist):
+		return fmt.Errorf("读取配置失败: %w", err)
+	}
+	encoded, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("序列化配置失败: %w", err)
 	}
-	data = append(data, '\n')
-	if err := writeFileAtomic(s.ConfigPath(), data, 0o600); err != nil {
+	// 覆盖前保留上一版（与 1.1.4 的「配置易丢失」修复意图一致）。
+	if len(raw) > 0 {
+		if previous, readErr := os.ReadFile(s.ConfigPath()); readErr == nil && len(bytes.TrimSpace(previous)) > 0 {
+			_ = os.WriteFile(s.ConfigPath()+".bak", previous, 0o600)
+		}
+	}
+	raw[section] = encoded
+	// settings 落盘时顺便清掉旧 Node CLI 的扁平字段（迁移完成）。
+	if section == "settings" {
+		delete(raw, "url")
+		delete(raw, "port")
+	}
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %w", err)
+	}
+	out = append(out, '\n')
+	if err := writeFileAtomic(s.ConfigPath(), out, 0o600); err != nil {
 		return fmt.Errorf("写入配置失败: %w", err)
 	}
 	return nil
