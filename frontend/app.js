@@ -101,21 +101,21 @@
   var PRESET_KEYS = ['deepseek', 'kimi', 'qwen', 'openai', 'claude'];
 
   /* ───────────── Mock（与 model.State 同构） ───────────── */
-  var MOCK_HASH = '374e99b1285eb30ff49aff5750cf58d8e814ae93f8c12712df2299ffd8fba418';
+  var MOCK_HASH = 'a1fc9521d347b1a04bc80ce16df17dbb701dc1241847c07e80a8064f7153a1a5';
   var MOCK_SHORT_HASH = MOCK_HASH.slice(0, 8);
 
   function buildMockState() {
     var now = Date.now();
     return {
-      appVersion: '1.1.1',
+      appVersion: '1.1.3',
       platform: 'darwin',
       homeDir: '/Users/demo/.ykt',
       configPath: '/Users/demo/.ykt/config.json',
       logPath: '/Users/demo/.ykt/server.log',
       scriptFile: '内置（随 App 打包）',
       service: { running: true, port: 8899, pid: 48213, url: 'http://127.0.0.1:8899/', uptime: 4512, error: '' },
-      script: { name: '雨课助手', version: '3.0.8', author: '风之子', lines: 2446, hash: MOCK_HASH, shortHash: MOCK_SHORT_HASH, matches: ['*://*.yuketang.cn/*', '*://*.gdufemooc.cn/*'] },
-      install: { installed: true, inSync: true, version: '3.0.8', hash: MOCK_HASH, openedAt: now - 3 * 3600 * 1000, note: '已安装，与当前内置脚本一致' },
+      script: { name: '雨课助手', version: '3.0.9', author: '风之子', lines: 2446, hash: MOCK_HASH, shortHash: MOCK_SHORT_HASH, matches: ['*://*.yuketang.cn/*', '*://*.gdufemooc.cn/*'] },
+      install: { installed: true, inSync: true, version: '3.0.9', hash: MOCK_HASH, openedAt: now - 3 * 3600 * 1000, note: '已安装，与当前内置脚本一致' },
       ai: { url: PRESETS.deepseek.url, key: 'sk-demo-1234567890abcdef', model: 'deepseek-chat', apiFormat: 'openai', authMethod: 'bearer' },
       features: { autoAI: true, autoComment: false },
       settings: { port: 8899, defaultUrl: 'https://yuketang.cn/', autoStart: true, syncEnabled: true, appearance: 'system' },
@@ -135,7 +135,7 @@
     var now = Date.now();
     var rows = [
       ['info', '本地服务已启动，监听 127.0.0.1:8899', -75.3 * 60000],
-      ['info', '已加载内置用户脚本：雨课助手 v3.0.8', -75.1 * 60000],
+      ['info', '已加载内置用户脚本：雨课助手 v3.0.9', -75.1 * 60000],
       ['warn', '检测到 server.json 残留记录，已清理', -74.8 * 60000],
       ['info', 'GET /ykt.user.js 安装请求已响应', -63 * 60000],
       ['info', '配置已同步到网页脚本', -41 * 60000],
@@ -538,26 +538,32 @@
     var current = 'v' + ((state && state.appVersion) || '—');
     if (updateBusy) return info && info.available ? '正在安装更新…' : '正在检查更新…';
     if (!info) return '当前 ' + current + ' · 尚未检查';
-    if (!info.available) return '当前 ' + current + ' · 已是最新';
+    if (info.error) return '当前 ' + current + ' · 检查失败';
+    if (!info.checkedAt) return '当前 ' + current + ' · 尚未检查';
+    if (!info.available) return '当前 ' + current + ' · 已是最新 · 检查于 ' + fmtRelative(info.checkedAt);
     return '当前 ' + current + ' · 可更新至 v' + info.latestVersion;
   }
   function renderUpdate() {
     var info = MOCK ? mockUpdate : updateInfo;
     text('#updateStatus', updateStatusText(info));
+    var error = info && info.error ? String(info.error) : '';
     var installBtn = $('#btnInstallUpdate');
     if (installBtn) {
-      installBtn.hidden = !(info && info.available) || updateBusy;
+      installBtn.hidden = !(info && info.available) || !!error || updateBusy;
       installBtn.textContent = '下载并重启';
     }
     var checkBtn = $('#btnCheckUpdate');
     if (checkBtn) {
       checkBtn.disabled = updateBusy;
-      checkBtn.textContent = updateBusy ? '检查中…' : '检查更新';
+      checkBtn.textContent = updateBusy ? '检查中…' : (error ? '重试' : '检查更新');
     }
     var notesRow = $('#updateNotesRow');
-    var notes = info && info.available ? (info.notes || '') : '';
+    var notes = info && info.available && !error ? (info.notes || '') : '';
     if (notesRow) notesRow.hidden = !notes;
     if (notes) text('#updateNotes', notes.length > 320 ? notes.slice(0, 320) + '…' : notes);
+    var errorRow = $('#updateErrorRow');
+    if (errorRow) errorRow.hidden = !error;
+    if (error) text('#updateError', '失败原因：' + error + '（不会反复自动重试；可点「重试」）');
   }
   function checkUpdates() {
     if (updateBusy) return;
@@ -577,8 +583,10 @@
       else toast('已是最新版本', 'success');
     }).catch(function (err) {
       updateBusy = false;
+      var message = errMsg(err);
+      updateInfo = Object.assign({}, updateInfo || {}, { available: false, error: message, checkedAt: Date.now() });
       renderUpdate();
-      toast('检查更新失败：' + errMsg(err), 'error');
+      toast('检查更新失败：' + message, 'error');
     });
   }
   function installUpdate() {

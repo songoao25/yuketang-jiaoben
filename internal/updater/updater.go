@@ -33,6 +33,9 @@ import (
 const (
 	// DefaultAPIURL 是 GitHub Releases latest 接口（origin 仓库）。
 	DefaultAPIURL = "https://api.github.com/repos/songoao25/yuketang-jiaoben/releases/latest"
+	// DefaultWebBase 是 GitHub 网页版仓库地址；网页 /releases/latest 走普通 CDN，
+	// 不占用 API 60 次/小时的限额（默认检查用这条路径）。
+	DefaultWebBase = "https://github.com/songoao25/yuketang-jiaoben"
 	// checksumsAssetName 是 release 中的校验文件；每行 "sha256  filename"。
 	checksumsAssetName = "checksums.txt"
 	// maxDownloadBytes 防止异常响应占满磁盘（512 MiB）。
@@ -46,6 +49,7 @@ const userAgent = "yuketang-jiaoben-updater/1.0"
 type Options struct {
 	CurrentVersion string
 	APIURL         string
+	WebBase        string
 	Client         *http.Client
 	GOOS           string
 	GOARCH         string
@@ -55,6 +59,7 @@ type Options struct {
 // NewOptions 返回默认检查参数；可用 YKT_UPDATE_API_URL 覆盖接口地址（测试/镜像）。
 func NewOptions(currentVersion string) Options {
 	apiURL := strings.TrimSpace(os.Getenv("YKT_UPDATE_API_URL"))
+	webBase := strings.TrimSpace(os.Getenv("YKT_UPDATE_WEB_BASE"))
 	token := strings.TrimSpace(os.Getenv("YKT_UPDATE_TOKEN"))
 	if token == "" {
 		token = strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
@@ -62,13 +67,14 @@ func NewOptions(currentVersion string) Options {
 	return Options{
 		CurrentVersion: currentVersion,
 		APIURL:         apiURL,
+		WebBase:        webBase,
 		Token:          token,
 	}
 }
 
 func (o Options) normalized() Options {
-	if strings.TrimSpace(o.APIURL) == "" {
-		o.APIURL = DefaultAPIURL
+	if strings.TrimSpace(o.APIURL) == "" && strings.TrimSpace(o.WebBase) == "" {
+		o.WebBase = DefaultWebBase
 	}
 	if o.Client == nil {
 		o.Client = &http.Client{Timeout: 20 * time.Second}
@@ -103,7 +109,13 @@ type githubAsset struct {
 // Check 比较当前版本与 GitHub 最新 release。已是最新时 Available=false。
 func Check(ctx context.Context, opts Options) (model.UpdateInfo, error) {
 	opts = opts.normalized()
-	release, err := fetchLatest(ctx, opts)
+	var release *githubRelease
+	var err error
+	if opts.APIURL != "" {
+		release, err = fetchLatest(ctx, opts)
+	} else {
+		release, err = fetchLatestWeb(ctx, opts)
+	}
 	if err != nil {
 		return model.UpdateInfo{CurrentVersion: opts.CurrentVersion}, err
 	}
@@ -169,6 +181,76 @@ func fetchLatest(ctx context.Context, opts Options) (*githubRelease, error) {
 	return &release, nil
 }
 
+// fetchLatestWeb 用网页版 /releases/latest 的 302 Location 取最新 tag，
+// 再按固定资产名拼出下载地址；不访问 GitHub API，避免未登录限流。
+func fetchLatestWeb(ctx context.Context, opts Options) (*githubRelease, error) {
+	base := strings.TrimRight(opts.WebBase, "/")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/releases/latest", nil)
+	if err != nil {
+		return nil, fmt.Errorf("构造更新请求失败: %w", err)
+	}
+	req.Header.Set("User-Agent", userAgent)
+	client := *opts.Client
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("检查更新失败（网络不可用或代理异常）: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var location string
+	switch resp.StatusCode {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		location = resp.Header.Get("Location")
+	case http.StatusOK:
+		if resp.Request != nil && resp.Request.URL != nil {
+			location = resp.Request.URL.String()
+		}
+	case http.StatusNotFound:
+		return nil, errors.New("暂时没有可用的发布版本")
+	case http.StatusForbidden, http.StatusTooManyRequests:
+		return nil, errors.New("GitHub 网页请求受限，请稍后重试")
+	default:
+		return nil, fmt.Errorf("检查更新失败：GitHub 返回 HTTP %d", resp.StatusCode)
+	}
+	const marker = "/releases/tag/"
+	idx := strings.LastIndex(location, marker)
+	if idx < 0 {
+		return nil, errors.New("更新信息缺少版本号")
+	}
+	tag := location[idx+len(marker):]
+	if cut := strings.IndexAny(tag, "?#"); cut >= 0 {
+		tag = tag[:cut]
+	}
+	if tag == "" {
+		return nil, errors.New("更新信息缺少版本号")
+	}
+	name := assetName(opts.GOOS, opts.GOARCH)
+	assetURL := fmt.Sprintf("%s/releases/download/%s/%s", base, tag, name)
+	checksumsURL := fmt.Sprintf("%s/releases/download/%s/%s", base, tag, checksumsAssetName)
+	release := &githubRelease{TagName: tag, Assets: []githubAsset{
+		{Name: name, BrowserDownloadURL: assetURL, Size: headContentLength(ctx, opts.Client, assetURL)},
+		{Name: checksumsAssetName, BrowserDownloadURL: checksumsURL},
+	}}
+	return release, nil
+}
+
+func headContentLength(ctx context.Context, client *http.Client, url string) int64 {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return 0
+	}
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return 0
+	}
+	return resp.ContentLength
+}
+
 // assetName 返回当前平台约定的更新包名。
 func assetName(goos, goarch string) string {
 	if goos == "linux" {
@@ -195,7 +277,11 @@ func checksumFor(ctx context.Context, opts Options, release *githubRelease, asse
 		if candidate.Name != checksumsAssetName {
 			continue
 		}
-		body, err := fetchText(ctx, opts.Client, candidate.BrowserDownloadURL, opts.Token, 1<<20)
+		token := opts.Token
+		if opts.APIURL == "" {
+			token = "" // 网页 CDN 不发送 token
+		}
+		body, err := fetchText(ctx, opts.Client, candidate.BrowserDownloadURL, token, 1<<20)
 		if err != nil {
 			return "", fmt.Errorf("下载校验文件失败: %w", err)
 		}

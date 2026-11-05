@@ -284,3 +284,45 @@ func TestCheckSendsToken(t *testing.T) {
 		t.Fatalf("Authorization = %q", gotAuth)
 	}
 }
+
+func TestCheckWebLatest(t *testing.T) {
+	asset := assetName(runtime.GOOS, runtime.GOARCH)
+	sum := strings.Repeat("b", 64)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/v9.9.9", http.StatusFound)
+		case "/releases/download/v9.9.9/" + checksumsAssetName:
+			_, _ = w.Write([]byte(sum + "  " + asset + "\n"))
+		case "/releases/download/v9.9.9/" + asset:
+			w.Header().Set("Content-Length", "12345")
+			_, _ = w.Write(nil)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	info, err := Check(context.Background(), Options{
+		CurrentVersion: "1.0.0",
+		WebBase:        server.URL,
+		Client:         server.Client(),
+	})
+	if err != nil {
+		t.Fatalf("Check web 失败: %v", err)
+	}
+	if !info.Available || info.LatestVersion != "9.9.9" || info.AssetName != asset || info.Checksum != sum {
+		t.Fatalf("web UpdateInfo = %+v", info)
+	}
+}
+
+func TestCheckWebNoRelease(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	if _, err := Check(context.Background(), Options{
+		CurrentVersion: "1.0.0",
+		WebBase:        server.URL,
+		Client:         server.Client(),
+	}); err == nil {
+		t.Fatal("没有 release 时应返回错误")
+	}
+}

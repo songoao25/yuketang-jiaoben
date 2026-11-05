@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -33,12 +34,14 @@ type App struct {
 	appVersion   string
 	scriptMeta   model.ScriptMeta
 
-	mu            sync.Mutex
-	srv           *server.Server
-	externalPID   int
-	externalOwner string // gui | daemon | 空
-	updateInfo    model.UpdateInfo
-	updateChecked bool
+	mu              sync.Mutex
+	srv             *server.Server
+	externalPID     int
+	externalOwner   string // gui | daemon | 空
+	updateInfo      model.UpdateInfo
+	updateChecked   bool
+	updateError     string
+	updateCheckedAt int64
 
 	// 多账号批量（见 .private/batch-plan.md）
 	batchMu           sync.Mutex
@@ -351,6 +354,8 @@ func (a *App) GetUpdateInfo() (model.UpdateInfo, error) {
 	defer a.mu.Unlock()
 	info := a.updateInfo
 	info.CurrentVersion = a.appVersion
+	info.Error = a.updateError
+	info.CheckedAt = a.updateCheckedAt
 	return info, nil
 }
 
@@ -364,12 +369,18 @@ func (a *App) CheckForUpdates() (model.UpdateInfo, error) {
 	info, err := updater.Check(ctx, updater.NewOptions(a.appVersion))
 	if err != nil {
 		a.updateLog("检查更新失败: %v", err)
+		a.mu.Lock()
+		a.updateError = err.Error()
+		a.updateCheckedAt = time.Now().UnixMilli()
+		a.mu.Unlock()
 		return a.cachedUpdateInfo(), err
 	}
 	info.CurrentVersion = a.appVersion
 	a.mu.Lock()
 	a.updateInfo = info
 	a.updateChecked = true
+	a.updateError = ""
+	a.updateCheckedAt = time.Now().UnixMilli()
 	a.mu.Unlock()
 	if info.Available {
 		a.updateLog("发现新版本 v%s（当前 v%s）", info.LatestVersion, a.appVersion)
@@ -432,27 +443,63 @@ func (a *App) cachedUpdateInfo() model.UpdateInfo {
 	return info
 }
 
-// autoCheckUpdates 启动后静默检查一次；发现新版本时通过 app:notice 提示。
+// autoCheckUpdates 启动后静默检查一次；同一台机器 12 小时内只自动查一次，
+// 避免反复请求/反复失败；失败原因会保留给设置页显示。
 func (a *App) autoCheckUpdates() {
 	if os.Getenv("YKT_UPDATE_DISABLE") == "1" {
+		return
+	}
+	if !a.autoUpdateDue() {
 		return
 	}
 	time.Sleep(3 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	a.markAutoUpdateCheck()
 	info, err := updater.Check(ctx, updater.NewOptions(a.appVersion))
+	now := time.Now().UnixMilli()
 	if err != nil {
 		a.updateLog("自动检查更新失败: %v", err)
+		a.mu.Lock()
+		a.updateError = err.Error()
+		a.updateCheckedAt = now
+		a.mu.Unlock()
 		return
 	}
 	info.CurrentVersion = a.appVersion
 	a.mu.Lock()
 	a.updateInfo = info
 	a.updateChecked = true
+	a.updateError = ""
+	a.updateCheckedAt = now
 	a.mu.Unlock()
 	if info.Available {
 		a.emit("发现新版本 v" + info.LatestVersion + "，可在「设置 → 更新」中安装")
 	}
+}
+
+type updateState struct {
+	LastAutoCheck int64 `json:"lastAutoCheck"`
+}
+
+func (a *App) autoUpdateDue() bool {
+	data, err := os.ReadFile(filepath.Join(a.store.HomeDir(), "update-state.json"))
+	if err != nil {
+		return true
+	}
+	var state updateState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return true
+	}
+	return time.Since(time.UnixMilli(state.LastAutoCheck)) >= 12*time.Hour
+}
+
+func (a *App) markAutoUpdateCheck() {
+	data, err := json.Marshal(updateState{LastAutoCheck: time.Now().UnixMilli()})
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(filepath.Join(a.store.HomeDir(), "update-state.json"), data, 0o600)
 }
 
 // updateLog 把更新过程写入 ~/.ykt/update.log（不含敏感信息）。

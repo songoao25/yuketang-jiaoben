@@ -79,8 +79,8 @@ func TestAppDefaultState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetState 失败: %v", err)
 	}
-	if state.Script.Version != "3.0.8" {
-		t.Errorf("内置脚本版本 = %q，期望 3.0.8", state.Script.Version)
+	if state.Script.Version != "3.0.9" {
+		t.Errorf("内置脚本版本 = %q，期望 3.0.9", state.Script.Version)
 	}
 	if state.Script.Hash == "" || state.Script.ShortHash == "" {
 		t.Error("脚本指纹为空")
@@ -406,4 +406,28 @@ func mustReadScript(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+// TestAppUpdateCheckError 验证检查失败会保留错误并暴露给设置页，而不是显示「已是最新」。
+func TestAppUpdateCheckError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "rate limited", http.StatusForbidden)
+	}))
+	defer server.Close()
+	t.Setenv("YKT_UPDATE_API_URL", server.URL)
+	t.Setenv("YKT_UPDATE_DISABLE", "")
+	app, _ := newTestApp(t)
+	if _, err := app.CheckForUpdates(); err == nil {
+		t.Fatal("检查更新应返回错误")
+	}
+	info, err := app.GetUpdateInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Error == "" || info.CheckedAt == 0 {
+		t.Fatalf("失败状态未暴露: %+v", info)
+	}
+	if info.Available {
+		t.Fatalf("检查失败时不应标记可更新: %+v", info)
+	}
 }

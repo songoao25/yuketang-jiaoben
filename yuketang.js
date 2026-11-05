@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         雨课助手
 // @namespace    http://tampermonkey.net/
-// @version      3.0.8
+// @version      3.0.9
 // @description  针对雨课堂视频进行自动播放，配置AI自动答题
 // @author       风之子
 // @license      GPL3
@@ -31,9 +31,11 @@
 
   // ---- 脚本配置，用户可修改 ----
   const Config = {
-    version: '3.0.8',     // 版本号
+    version: '3.0.9',     // 版本号
     playbackRate: 2,      // 视频播放倍速
     pptInterval: 3000,    // ppt翻页间隔
+    videoLoadTimeout: 60, // 秒：等待视频真正加载/开始播放的最长时间（可在面板改）
+    switchDelay: 3,       // 秒：切换章节后先等页面加载，再判断播放
     // 本机管理台（ykt App / CLI）配置同步：服务只监听 127.0.0.1，端口范围与 App 一致
     appSync: {
       ports: [8899, 8900, 8901, 8902, 8903, 8904, 8905, 8906, 8907, 8908, 8909, 8910],
@@ -45,6 +47,7 @@
       proClassCount: 'pro_lms_classCount',
       feature: 'ykt_feature_conf', // 是否开启AI作答/自动评论
       pendingAutoStart: 'ykt_pending_auto_start',
+      waits: 'ykt_wait_conf',       // 视频加载/切换等待设置
       appPort: 'ykt_app_port'      // 上次成功同步配置的本机端口
     }
   };
@@ -81,6 +84,27 @@
     isProgressDone(text) {
       if (!text) return false;
       return text.includes('100%') || text.includes('99%') || text.includes('98%') || text.includes('已完成');
+    },
+    // 真实媒体是否播放完毕：只认 ended 或 currentTime 接近 duration，避免旧进度文本误判
+    isMediaDone(media) {
+      if (!media) return false;
+      const duration = Number(media.duration || 0);
+      const current = Number(media.currentTime || 0);
+      if ([duration, current].some(n => !Number.isFinite(n))) return false;
+      if (media.ended && current > 0.5) return true;
+      return duration > 1 && current > 0.5 && current >= duration - 0.5;
+    },
+    mediaKey(media) {
+      if (!media) return '';
+      return String(media.currentSrc || media.src || '');
+    },
+    // 解析播放器上的 mm:ss / hh:mm:ss 文本（解析失败返回 null）
+    parseClock(text) {
+      const raw = String(text || '').trim();
+      if (!raw) return null;
+      const parts = raw.split(':').map(part => Number(part.trim()));
+      if (parts.some(n => !Number.isFinite(n))) return null;
+      return parts.reduce((total, part) => total * 60 + part, 0);
     },
     // 主要是规避firefox会创建多个iframe的问题
     inIframe() {
@@ -233,6 +257,19 @@
     },
     setFeatureConf(conf) {
       localStorage.setItem(Config.storageKeys.feature, JSON.stringify(conf));
+    },
+    getWaitConf() {
+      const raw = localStorage.getItem(Config.storageKeys.waits);
+      const saved = Utils.safeJSONParse(raw, {}) || {};
+      const conf = {
+        videoLoadTimeout: Number(saved.videoLoadTimeout) > 0 ? Number(saved.videoLoadTimeout) : Config.videoLoadTimeout,
+        switchDelay: Number(saved.switchDelay) > 0 ? Number(saved.switchDelay) : Config.switchDelay,
+      };
+      localStorage.setItem(Config.storageKeys.waits, JSON.stringify(conf));
+      return conf;
+    },
+    setWaitConf(conf) {
+      localStorage.setItem(Config.storageKeys.waits, JSON.stringify(conf));
     },
     getPendingAutoStart() {
       const raw = localStorage.getItem(Config.storageKeys.pendingAutoStart);
@@ -553,6 +590,7 @@
         }
         .form-item input[type="text"],
         .form-item input[type="password"],
+        .form-item input[type="number"],
         .form-item select {
           width: 100%;
           height: 28px;
@@ -569,6 +607,12 @@
         .form-item select:focus {
           border-color: var(--accent);
           box-shadow: 0 0 0 3px var(--focus);
+        }
+        .form-note {
+          margin: 0 0 10px;
+          font-size: 11px;
+          line-height: 1.6;
+          color: var(--label-3);
         }
         .form-item .checkbox-label {
           display: flex;
@@ -644,6 +688,7 @@
             <li><strong>支持模型</strong> DeepSeek、Kimi、通义千问、OpenAI、Claude</li>
             <li><strong>自动答题</strong> 先在「AI 配置」中填写 API Key</li>
             <li><strong>开始刷课</strong> 进入课程目录页后点击「开始刷课」</li>
+            <li><strong>网速慢</strong> 在「AI 配置」面板调大视频加载超时，避免加载中被误判完成</li>
             <hr>
           </ul>
         </div>
@@ -686,6 +731,15 @@
               图文讨论自动回复
             </label>
           </div>
+          <div class="form-item">
+            <label>视频加载超时（秒）</label>
+            <input type="number" id="wait_load_timeout" min="10" max="300" step="5">
+          </div>
+          <div class="form-item">
+            <label>切换视频后等待（秒）</label>
+            <input type="number" id="wait_switch_delay" min="1" max="20" step="1">
+          </div>
+          <p class="form-note">网速慢时调大加载超时。脚本只认真实播放完成；超时会停止本次刷课并提示，不会跳过后续章节。</p>
           <div class="settings-footer">
             <button id="close_settings">取消</button>
             <button id="save_settings">保存并关闭</button>
@@ -723,6 +777,8 @@
       authMethodSelect: doc.getElementById('auth_method'),
       featureAutoAI: doc.getElementById('feature_auto_ai'),
       featureAutoComment: doc.getElementById('feature_auto_comment'),
+      waitLoadInput: doc.getElementById('wait_load_timeout'),
+      waitSwitchInput: doc.getElementById('wait_switch_delay'),
       minimality: doc.getElementById('minimality'),
       question: doc.getElementById('question'),
       miniBasic: doc.getElementById('mini-basic')
@@ -823,11 +879,18 @@
       ui.featureAutoAI.checked = saved.autoAI;
       ui.featureAutoComment.checked = saved.autoComment;
     };
+    const loadWaitConf = () => {
+      const saved = Store.getWaitConf();
+      ui.waitLoadInput.value = saved.videoLoadTimeout;
+      ui.waitSwitchInput.value = saved.switchDelay;
+    };
     loadAIConf();
     loadFeatureConf();
+    loadWaitConf();
     ui.btnSetting.onclick = () => {
       loadAIConf();
       loadFeatureConf();
+      loadWaitConf();
       ui.settings.style.display = 'block';
     };
     ui.closeSettings.onclick = () => {
@@ -847,8 +910,20 @@
         autoComment: ui.featureAutoComment.checked
       };
       Store.setFeatureConf(featureConf);
+      const clampNumber = (value, min, max, fallback) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return fallback;
+        return Math.min(max, Math.max(min, Math.round(num)));
+      };
+      const waitConf = {
+        videoLoadTimeout: clampNumber(ui.waitLoadInput.value, 10, 300, Config.videoLoadTimeout),
+        switchDelay: clampNumber(ui.waitSwitchInput.value, 1, 20, Config.switchDelay)
+      };
+      Store.setWaitConf(waitConf);
+      ui.waitLoadInput.value = waitConf.videoLoadTimeout;
+      ui.waitSwitchInput.value = waitConf.switchDelay;
       ui.settings.style.display = 'none';
-      log('AI 配置已保存');
+      log(`配置已保存（视频加载超时 ${waitConf.videoLoadTimeout} 秒，切换等待 ${waitConf.switchDelay} 秒）`);
     };
 
     ui.btnClear.onclick = () => {
@@ -906,6 +981,7 @@
         if (!ui.settings || ui.settings.style.display === 'none') return;
         loadAIConf();
         loadFeatureConf();
+        loadWaitConf();
       }
     };
   }
@@ -1511,7 +1587,8 @@ ${ocrText}
         const boxText = videoBox?.innerText || '';
         if ((videoBox || document.querySelector('video')) && !boxText.includes('已完成')) {
           this.panel.log('检测到当前课件页，直接续播当前内容');
-          await this.waitCoursewareVideo();
+          const resumedOk = await this.waitCoursewareVideo();
+          if (!resumedOk || this.shouldStop) return;
           history.back();
           await Utils.sleep(1000);
         }
@@ -1591,25 +1668,129 @@ ${ocrText}
       }
     }
 
+    // 读取页面右下角/播放器旁的课程进度文本（旧逻辑只看这段文本，容易把旧进度当成新视频完成）
+    readProgressText() {
+      return document.querySelector('.progress-wrap')?.querySelector('.text')?.innerHTML || '';
+    }
+
+    // 音频/视频真正开始前先等页面切换：新媒体就绪，或进度文本先变成非完成态
+    async waitForFreshPlayback({ previousVideo = null, previousMediaSrc = '', previousProgressText = '', label = '视频' } = {}) {
+      const waitConf = Store.getWaitConf();
+      const timeoutMs = Math.max(10, waitConf.videoLoadTimeout) * 1000;
+      const startedAt = Date.now();
+      let warnedSlowLoad = false;
+      while (Date.now() - startedAt < timeoutMs) {
+        Utils.dismissPopups();
+        const media = document.querySelector('video') || document.querySelector('audio');
+        const progress = this.readProgressText();
+        const mediaFresh = media
+          && (media !== previousVideo || (previousMediaSrc && Utils.mediaKey(media) !== previousMediaSrc))
+          && Number(media.duration || 0) > 1
+          && media.readyState >= 1;
+        const progressFresh = progress && progress !== previousProgressText && !Utils.isProgressDone(progress);
+        if (mediaFresh || progressFresh) {
+          this.panel.log(`${label} 已开始加载（等待 ${Math.round((Date.now() - startedAt) / 1000)} 秒）`);
+          return { started: true, media, mediaFresh, progress };
+        }
+        if (!warnedSlowLoad && Date.now() - startedAt > 5000) {
+          warnedSlowLoad = true;
+          this.panel.log(`${label} 加载较慢，继续等待（上限 ${waitConf.videoLoadTimeout} 秒）`);
+        }
+        await Utils.sleep(500);
+      }
+      return { started: false, mediaFresh: false, media: document.querySelector('video') || document.querySelector('audio'), progress: this.readProgressText() };
+    }
+
+    // 完成判定：以真实媒体播完为准；UI 进度只在媒体确实播放过之后作为兜底
+    async waitForMediaFinish({ previousVideo = null, previousMediaSrc = '', previousProgressText = '', label = '视频' } = {}) {
+      const waitConf = Store.getWaitConf();
+      const startResult = await this.waitForFreshPlayback({ previousVideo, previousMediaSrc, previousProgressText, label });
+      if (!startResult.started) {
+        return { ok: false, reason: 'load-timeout' };
+      }
+      let media = startResult.media;
+      let mediaTrusted = !!startResult.mediaFresh;
+      const stopObserve = media ? Player.observePause(media) : () => { };
+      let sawNonDone = !Utils.isProgressDone(startResult.progress);
+      let played = false;
+      const startedAt = Date.now();
+      const duration = Number(media?.duration || 0);
+      const finishTimeout = Math.max((duration > 1 ? duration * 3000 : 0), 20_000);
+      let ok = false;
+      try {
+        ok = await Utils.poll(() => {
+          Utils.dismissPopups();
+          const current = document.querySelector('video') || document.querySelector('audio');
+          if (current) media = current;
+          if (media && (media !== previousVideo || (previousMediaSrc && Utils.mediaKey(media) !== previousMediaSrc))) {
+            mediaTrusted = true;
+          }
+          const progress = this.readProgressText();
+          if (!Utils.isProgressDone(progress)) sawNonDone = true;
+          if (mediaTrusted && media) {
+            if (Number(media.currentTime || 0) > 0.5) played = true;
+            if (Utils.isMediaDone(media)) return true;
+          }
+          // UI 完成必须是「切换后先见过非完成态」；有视频时必须真的播放过且媒体已换新，防止旧 100% 文本跳章
+          if (Utils.isProgressDone(progress) && sawNonDone) {
+            if (!media) return true;
+            if (mediaTrusted && played) return true;
+          }
+          return false;
+        }, { interval: 1000, timeout: finishTimeout });
+      } finally {
+        stopObserve();
+      }
+      return { ok, media, reason: ok ? 'done' : 'finish-timeout' };
+    }
+
+    // 加载/播放失败时不跳章：停止本次刷课并明确提示，等用户检查网络后重来
+    videoFailure(label, reason) {
+      const waitConf = Store.getWaitConf();
+      if (reason === 'load-timeout') {
+        this.panel.error(`「${label}」在 ${waitConf.videoLoadTimeout} 秒内没有加载完成，已停止刷课，避免跳过后续章节。请检查网络后重新开始。`);
+      } else {
+        this.panel.error(`「${label}」没有检测到真实播放完成，已停止刷课，避免跳过后续章节。`);
+      }
+      this.shouldStop = true;
+    }
+
     async handleVideo(course) {
+      const previousVideo = document.querySelector('video') || document.querySelector('audio');
+      const previousMediaSrc = Utils.mediaKey(previousVideo);
+      const previousProgressText = this.readProgressText();
+      const waitConf = Store.getWaitConf();
       course.click();
       if (await this.waitForExternalHandoff(1500)) return;
-      await Utils.sleep(3000);
+      await Utils.sleep(waitConf.switchDelay * 1000);
       const progressNode = document.querySelector('.progress-wrap')?.querySelector('.text');
       const title = document.querySelector('.title')?.innerText || '视频';
       const isDeadline = document.querySelector('.box')?.innerText.includes('已过考核截止时间');
-      if (isDeadline) this.panel.log(`${title} 已过截止，进度不再增加，将直接跳过`);
-      Player.applySpeed();
-      Player.mute();
-      const stopObserve = Player.observePause(document.querySelector('video'));
-      await Utils.poll(() => {
-        Utils.dismissPopups();
-        return isDeadline || Utils.isProgressDone(progressNode?.innerHTML);
-      }, { interval: 5000, timeout: await Utils.getDDL() });
-      stopObserve();
+      if (isDeadline) {
+        this.panel.log(`${title} 已过截止，进度不再增加，将直接跳过`);
+        Player.applySpeed();
+        Player.mute();
+        const stopObserve = Player.observePause(document.querySelector('video'));
+        await Utils.poll(() => {
+          Utils.dismissPopups();
+          return Utils.isProgressDone(progressNode?.innerHTML);
+        }, { interval: 5000, timeout: await Utils.getDDL() });
+        stopObserve();
+        this.updateProgress(this.outside + 1, 0);
+        history.back();
+        await Utils.sleep(1200);
+        return;
+      }
+      this.panel.log(`等待「${title}」加载并播放…`);
+      const result = await this.waitForMediaFinish({ previousVideo, previousMediaSrc, previousProgressText, label: title });
+      if (!result.ok) {
+        this.videoFailure(title, result.reason);
+        return;
+      }
+      this.panel.log(`${title} 播放完成`);
       this.updateProgress(this.outside + 1, 0);
       history.back();
-      await Utils.sleep(1200);
+      await Utils.sleep(1500);
     }
 
     async handleBatch(course, list) {
@@ -1664,16 +1845,19 @@ ${ocrText}
     }
 
     async playAudioItem(item, title, idx) {
+      const previousVideo = document.querySelector('video') || document.querySelector('audio');
+      const previousMediaSrc = Utils.mediaKey(previousVideo);
+      const previousProgressText = this.readProgressText();
+      const waitConf = Store.getWaitConf();
       this.panel.log(`开始播放音频：${title}`);
       item.click();
       if (await this.waitForExternalHandoff()) return idx;
-      await Utils.sleep(2500);
-      Player.applyMediaDefault(document.querySelector('audio'));
-      const progressNode = document.querySelector('.progress-wrap')?.querySelector('.text');
-      await Utils.poll(() => {
-        Utils.dismissPopups();
-        return Utils.isProgressDone(progressNode?.innerHTML);
-      }, { interval: 3000, timeout: await Utils.getDDL() });
+      await Utils.sleep(waitConf.switchDelay * 1000);
+      const result = await this.waitForMediaFinish({ previousVideo, previousMediaSrc, previousProgressText, label: title });
+      if (!result.ok) {
+        this.videoFailure(title, result.reason);
+        return idx;
+      }
       this.panel.log(`${title} 播放完成`);
       idx++;
       this.updateProgress(this.outside, idx);
@@ -1683,19 +1867,19 @@ ${ocrText}
     }
 
     async playVideoItem(item, title, idx) {
+      const previousVideo = document.querySelector('video') || document.querySelector('audio');
+      const previousMediaSrc = Utils.mediaKey(previousVideo);
+      const previousProgressText = this.readProgressText();
+      const waitConf = Store.getWaitConf();
       this.panel.log(`开始播放视频：${title}`);
       item.click();
       if (await this.waitForExternalHandoff()) return idx;
-      await Utils.sleep(2500);
-      Player.applySpeed();
-      Player.mute();
-      const stopObserve = Player.observePause(document.querySelector('video'));
-      const progressNode = document.querySelector('.progress-wrap')?.querySelector('.text');
-      await Utils.poll(() => {
-        Utils.dismissPopups();
-        return Utils.isProgressDone(progressNode?.innerHTML);
-      }, { interval: 3000, timeout: await Utils.getDDL() });
-      stopObserve();
+      await Utils.sleep(waitConf.switchDelay * 1000);
+      const result = await this.waitForMediaFinish({ previousVideo, previousMediaSrc, previousProgressText, label: title });
+      if (!result.ok) {
+        this.videoFailure(title, result.reason);
+        return idx;
+      }
       this.panel.log(`${title} 播放完成`);
       idx++;
       this.updateProgress(this.outside, idx);
@@ -1863,20 +2047,20 @@ ${ocrText}
       await Utils.sleep(1200);
     }
 
-    // 等待课件视频播放完毕；播放器被关闭（弹窗关闭/元素销毁）时自动重新打开
+    // 等待课件视频播放完毕；只认真实播放进度，旧「0:00 / 0:00」或旧完成文本不再算完成
     async waitCoursewareVideo() {
-      const deadline = await Utils.getDDL();
-      const start = Date.now();
+      const waitConf = Store.getWaitConf();
+      const deadline = Date.now() + Math.max(20, waitConf.videoLoadTimeout) * 1000 + await Utils.getDDL();
       let boundVideo = null;
       let stopObserve = () => { };
       let reopenAttempts = 0;
+      let sawPlayback = false;
       try {
-        while (Date.now() - start < deadline) {
+        while (Date.now() < deadline) {
           Utils.dismissPopups();
           const video = document.querySelector('video');
           const display = document.querySelector('.xt_video_player_current_time_display');
           if (!video) {
-            // 播放器被关闭或视频元素被销毁，重新打开视频框
             const videoBox = document.querySelector('.video-box');
             if (videoBox && !videoBox.innerText.includes('已完成')) {
               this.panel.log('播放器被关闭，正在重新打开');
@@ -1885,8 +2069,8 @@ ${ocrText}
             }
             reopenAttempts++;
             if (reopenAttempts >= 4) {
-              this.panel.log('播放器恢复失败，刷新页面重试');
-              location.reload();
+              this.panel.error('播放器恢复失败，已停止本次刷课，避免跳过后续章节。');
+              this.shouldStop = true;
               return false;
             }
             await Utils.sleep(2000);
@@ -1894,7 +2078,6 @@ ${ocrText}
           }
           reopenAttempts = 0;
           if (!display) {
-            // 播放器加载中，等待渲染
             await Utils.sleep(800);
             continue;
           }
@@ -1905,11 +2088,17 @@ ${ocrText}
             boundVideo = video;
             stopObserve = Player.observePause(video);
           }
+          if (Number(video.currentTime || 0) > 0.5) sawPlayback = true;
+          if (Utils.isMediaDone(video)) return true;
           const times = display.innerText || '';
           const [nowTime, totalTime] = times.split(' / ');
-          if (nowTime && totalTime && nowTime === totalTime) return true;
+          const current = Utils.parseClock(nowTime);
+          const total = Utils.parseClock(totalTime);
+          if (sawPlayback && current !== null && total !== null && total > 0 && current >= total - 1) return true;
           await Utils.sleep(800);
         }
+        this.panel.error(`课件视频在 ${waitConf.videoLoadTimeout} 秒内没有加载完成，已停止刷课，避免跳过后续章节。请检查网络后重新开始。`);
+        this.shouldStop = true;
         return false;
       } finally {
         stopObserve();
@@ -1955,7 +2144,8 @@ ${ocrText}
             }
             videoBoxes[i].click();
             await Utils.sleep(2000);
-            await this.waitCoursewareVideo();
+            const videoOk = await this.waitCoursewareVideo();
+            if (!videoOk || this.shouldStop) return;
           }
         }
         this.panel.log(`${className} 已播放完毕`);
@@ -1964,7 +2154,8 @@ ${ocrText}
         if (videoBox) {
           videoBox.click();
           await Utils.sleep(1800);
-          await this.waitCoursewareVideo();
+          const videoOk = await this.waitCoursewareVideo();
+          if (!videoOk || this.shouldStop) return;
           this.panel.log(`${className} 视频播放完毕`);
         }
       }
@@ -2013,45 +2204,37 @@ ${ocrText}
           this.panel.log(`讨论区暂不自动发帖，${className}`);
           await Utils.sleep(2000);
         } else if (classType.includes('shipin') && !classStatus.includes('100%')) {
-          this.panel.log(`2s 后开始播放：${className}`);
-          await Utils.sleep(2000);
-          let statusTimer;
-          let videoTimer;
-          try {
-            statusTimer = setInterval(() => {
-              const status = document.querySelector('#app > div.app_index-wrapper > div.wrap > div.viewContainer.heightAbsolutely > div > div > div > div > section.title')?.lastElementChild?.innerText || '';
-              if (status.includes('100%') || status.includes('99%') || status.includes('98%') || status.includes('已完成')) {
-                this.panel.log(`${className} 播放完毕`);
-                clearInterval(statusTimer);
-                statusTimer = null;
+          const waitConf = Store.getWaitConf();
+          this.panel.log(`等待视频加载并播放：${className}（加载上限 ${waitConf.videoLoadTimeout} 秒）`);
+          let boundVideo = null;
+          let stopObserve = () => { };
+          let played = false;
+          let sawNonDone = false;
+          const startedAt = Date.now();
+          const timeoutMs = waitConf.videoLoadTimeout * 1000 + await Utils.getDDL();
+          const ok = await Utils.poll(() => {
+            const status = document.querySelector('#app > div.app_index-wrapper > div.wrap > div.viewContainer.heightAbsolutely > div > div > div > div > section.title')?.lastElementChild?.innerText || '';
+            if (!Utils.isProgressDone(status)) sawNonDone = true;
+            const video = document.querySelector('video');
+            if (video) {
+              if (video !== boundVideo) {
+                stopObserve();
+                Player.applySpeed();
+                Player.mute();
+                boundVideo = video;
+                stopObserve = Player.observePause(video);
               }
-            }, 200);
-
-            const videoWaitStart = Date.now();
-            videoTimer = setInterval(() => {
-              const video = document.querySelector('video');
-              if (video) {
-                setTimeout(() => {
-                  Player.applySpeed();
-                  Player.mute();
-                  Player.observePause(video);
-                }, 2000);
-                clearInterval(videoTimer);
-                videoTimer = null;
-              } else if (Date.now() - videoWaitStart > 20000) {
-                location.reload();
-              }
-            }, 5000);
-
-            await Utils.sleep(8000);
-            await Utils.poll(() => {
-              const status = document.querySelector('#app > div.app_index-wrapper > div.wrap > div.viewContainer.heightAbsolutely > div > div > div > div > section.title')?.lastElementChild?.innerText || '';
-              return status.includes('100%') || status.includes('99%') || status.includes('98%') || status.includes('已完成');
-            }, { interval: 1000, timeout: await Utils.getDDL() });
-          } finally {
-            if (statusTimer) clearInterval(statusTimer);
-            if (videoTimer) clearInterval(videoTimer);
+              if (Number(video.currentTime || 0) > 0.5) played = true;
+              if (Utils.isMediaDone(video)) return true;
+            }
+            return Utils.isProgressDone(status) && sawNonDone && played;
+          }, { interval: 1000, timeout: timeoutMs });
+          stopObserve();
+          if (!ok) {
+            this.panel.error(`「${className}」没有真实播放完成（等待 ${Math.round((Date.now() - startedAt) / 1000)} 秒），已停止，避免跳过后续章节。请检查网络后重新开始。`);
+            return;
           }
+          this.panel.log(`${className} 播放完毕`);
         } else if (classType.includes('zuoye')) {
           this.panel.log(`进入作业：${className}（暂无自动答题）`);
           await Utils.sleep(2000);

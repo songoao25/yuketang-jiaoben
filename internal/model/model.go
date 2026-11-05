@@ -157,4 +157,6 @@ type UpdateInfo struct {
 	AssetSize      int64  `json:"assetSize"`
 	AssetURL       string `json:"assetUrl"`
 	Checksum       string `json:"checksum"` // sha256 hex
+	Error          string `json:"error,omitempty"`
+	CheckedAt      int64  `json:"checkedAt,omitempty"` // Unix 毫秒
 }
