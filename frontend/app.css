@@ -2637,3 +2637,24 @@ html.mock .mock-lights {
   font-weight: 600;
   line-height: 1;
 }
+
+/* 多账号批量 */
+.batch-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--separator);
+}
+.batch-add .input { flex: 1; min-width: 0; }
+.batch-login {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--separator);
+  background: var(--fill);
+}
+.batch-login-text { flex: 1; min-width: 200px; font-size: 11px; line-height: 1.5; color: var(--label-2); }
+.batch-actions { display: flex; align-items: center; gap: 6px; }

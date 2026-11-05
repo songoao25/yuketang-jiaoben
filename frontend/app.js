@@ -124,6 +124,13 @@
       lastSyncAt: now - 125000
     };
   }
+  function mockBatchAccounts() {
+    return [
+      { id: 'acc_demo1', name: '林同学', site: 'https://yuketang.cn/', login_state: 'logged_in', last_run_at: '2026-11-05T09:12:00+08:00', last_result: 'ok', last_error: '' },
+      { id: 'acc_demo2', name: '陈同学', site: 'https://yuketang.cn/', login_state: 'needs_login', last_run_at: '', last_result: '', last_error: '' }
+    ];
+  }
+
   function buildMockLogs() {
     var now = Date.now();
     var rows = [
@@ -862,6 +869,206 @@
   }
   function stopLogPolling() { if (logTimer) { window.clearInterval(logTimer); logTimer = null; } }
 
+  /* ───────────── 多账号批量 ───────────── */
+  var batchAccounts = [];
+  var batchLoginAccount = '';
+  var batchLoginTimer = null;
+  var batchLoginDone = false;
+
+  function batchEsc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
+  function batchStatusInfo(account) {
+    switch (account.login_state) {
+      case 'logged_in': return { text: '已登录', cls: 'is-success', desc: '登录态有效，之后可后台批量' };
+      case 'needs_login': return { text: '需登录', cls: 'is-warning', desc: '登录态已失效，点「登录」重新手动登录' };
+      case 'running': return { text: '运行中', cls: 'is-running', desc: '正在批量运行' };
+      case 'error': return { text: '异常', cls: 'is-danger', desc: '上次运行出错，可重新登录后再试' };
+      default: return { text: '未登录', cls: '', desc: '首次使用点「登录」，在浏览器里手动完成一次' };
+    }
+  }
+
+  function renderBatchAccounts(errorText) {
+    var box = $('#batchAccountList');
+    if (!box) return;
+    if (errorText) {
+      box.innerHTML = '<div class="row"><div class="row-copy"><div class="row-title">多账号不可用</div><div class="row-desc">' + batchEsc(errorText) + '</div></div></div>';
+      return;
+    }
+    if (!batchAccounts.length) {
+      box.innerHTML = '<div class="row"><span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-user"/></svg></span>' +
+        '<div class="row-copy"><div class="row-title">还没有账号</div><div class="row-desc">先添加一个账号；首次需要你手动登录一次，之后可后台批量</div></div>' +
+        '<div class="row-control"><button class="btn btn-sm" type="button" data-batch-action="add">添加账号</button></div></div>';
+      return;
+    }
+    var html = '';
+    batchAccounts.forEach(function (account) {
+      var status = batchStatusInfo(account);
+      var badge = '<span class="badge ' + status.cls + '"><span class="badge-dot" aria-hidden="true"></span>' + status.text + '</span>';
+      html += '<div class="row" data-batch-id="' + batchEsc(account.id) + '">' +
+        '<span class="row-icon is-gray" aria-hidden="true"><svg class="icon"><use href="#i-user"/></svg></span>' +
+        '<div class="row-copy"><div class="row-title">' + batchEsc(account.name) + ' ' + badge + '</div>' +
+        '<div class="row-desc">' + batchEsc(status.desc) + '</div></div>' +
+        '<div class="row-control"><div class="batch-actions">' +
+        '<button class="btn btn-sm" type="button" data-batch-action="login" data-batch-id="' + batchEsc(account.id) + '">' +
+        (account.login_state === 'logged_in' ? '重新登录' : '登录') + '</button>' +
+        '<button class="icon-btn" type="button" data-batch-action="remove" data-batch-id="' + batchEsc(account.id) + '" aria-label="删除账号" title="删除账号"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>' +
+        '</div></div></div>';
+    });
+    box.innerHTML = html;
+  }
+
+  function loadBatchAccounts() {
+    if (MOCK) { batchAccounts = mockBatchAccounts(); renderBatchAccounts(); return Promise.resolve(true); }
+    var api = bindings();
+    if (!api || typeof api.ListBatchAccounts !== 'function') {
+      renderBatchAccounts('当前 App 版本不支持多账号，请重新构建安装');
+      return Promise.resolve(false);
+    }
+    return Promise.resolve().then(function () { return api.ListBatchAccounts(); })
+      .then(function (list) { batchAccounts = Array.isArray(list) ? list : []; renderBatchAccounts(); return true; })
+      .catch(function (err) { renderBatchAccounts(errMsg(err)); return false; });
+  }
+
+  function showBatchAddForm(show) {
+    setHidden('#batchAddForm', !show);
+    if (show) {
+      var input = $('#batchAccountName');
+      if (input) { input.value = ''; input.focus(); }
+    }
+  }
+
+  function submitBatchAccount() {
+    var name = (val('#batchAccountName') || '').trim();
+    if (!name) { toast('先填一个账号备注', 'warning'); return; }
+    showBatchAddForm(false);
+    if (MOCK) {
+      batchAccounts.push({ id: 'acc_mock_' + Date.now(), name: name, site: 'https://yuketang.cn/', login_state: 'unknown' });
+      renderBatchAccounts();
+      toast('已添加账号（演示）', 'success');
+      return;
+    }
+    var api = bindings();
+    if (!api || typeof api.AddBatchAccount !== 'function') { toast('未检测到 App 绑定', 'error'); return; }
+    api.AddBatchAccount(name).then(function () {
+      toast('已添加账号，点「登录」完成首次登录', 'success');
+      return loadBatchAccounts();
+    }).catch(function (err) { toast('添加失败：' + errMsg(err), 'error'); });
+  }
+
+  function stopBatchLoginPolling() {
+    if (batchLoginTimer) { window.clearInterval(batchLoginTimer); batchLoginTimer = null; }
+  }
+
+  function setBatchLoginText(message) { text('#batchLoginText', message); }
+
+  function startBatchLogin(id) {
+    var account = null;
+    batchAccounts.forEach(function (item) { if (item.id === id) account = item; });
+    if (!account) return;
+    batchLoginAccount = id;
+    batchLoginDone = false;
+    setHidden('#batchLoginPanel', false);
+    setBatchLoginText('正在打开浏览器…');
+    if (MOCK) {
+      setBatchLoginText('演示模式：已模拟打开登录页，稍后自动完成。');
+      stopBatchLoginPolling();
+      batchLoginTimer = window.setInterval(function () {
+        if (!batchLoginAccount) return;
+        if (!batchLoginDone) { batchLoginDone = true; setBatchLoginText('演示模式：已检测到登录成功…'); window.setTimeout(function () { completeBatchLogin(); }, 700); }
+      }, 1200);
+      return;
+    }
+    var api = bindings();
+    if (!api || typeof api.OpenBatchLogin !== 'function') { toast('未检测到 App 绑定', 'error'); return; }
+    api.OpenBatchLogin(id).then(function () {
+      setBatchLoginText('已打开浏览器，请在浏览器里完成登录；完成后点「我已完成登录」。');
+      stopBatchLoginPolling();
+      batchLoginTimer = window.setInterval(pollBatchLoginOnce, 1500);
+    }).catch(function (err) {
+      setHidden('#batchLoginPanel', true);
+      batchLoginAccount = '';
+      toast('打开登录浏览器失败：' + errMsg(err), 'error');
+    });
+  }
+
+  function pollBatchLoginOnce() {
+    var id = batchLoginAccount;
+    if (!id) return;
+    if (MOCK) return;
+    var api = bindings();
+    if (!api || typeof api.GetBatchLoginState !== 'function') return;
+    api.GetBatchLoginState(id).then(function (status) {
+      if (!status || !status.open) return;
+      if (status.logged_in) {
+        setBatchLoginText('已检测到登录成功，正在保存…');
+        if (!batchLoginDone) { batchLoginDone = true; completeBatchLogin(); }
+      } else {
+        setBatchLoginText('请在浏览器里完成登录' + (status.url ? '（当前页面：' + status.url + '）' : '') + '，完成后点「我已完成登录」。');
+      }
+    }).catch(function () { /* 轮询失败不打扰，继续等 */ });
+  }
+
+  function completeBatchLogin() {
+    var id = batchLoginAccount;
+    if (!id) return;
+    stopBatchLoginPolling();
+    var finish = function (ok, message) {
+      setHidden('#batchLoginPanel', true);
+      batchLoginAccount = '';
+      batchLoginDone = false;
+      toast(message, ok ? 'success' : 'error');
+      if (ok) loadBatchAccounts();
+    };
+    if (MOCK) { finish(true, '登录已保存（演示）'); return; }
+    var api = bindings();
+    if (!api || typeof api.CompleteBatchLogin !== 'function') { finish(false, '未检测到 App 绑定'); return; }
+    api.CompleteBatchLogin(id).then(function () {
+      finish(true, '登录已保存，之后可后台批量');
+    }).catch(function (err) {
+      finish(false, '保存登录失败：' + errMsg(err));
+    });
+  }
+
+  function cancelBatchLogin() {
+    var id = batchLoginAccount;
+    stopBatchLoginPolling();
+    setHidden('#batchLoginPanel', true);
+    batchLoginAccount = '';
+    batchLoginDone = false;
+    if (MOCK || !id) return;
+    var api = bindings();
+    if (api && typeof api.CancelBatchLogin === 'function') api.CancelBatchLogin(id).catch(function () {});
+  }
+
+  function removeBatchAccount(id) {
+    var account = null;
+    batchAccounts.forEach(function (item) { if (item.id === id) account = item; });
+    openConfirm({
+      title: '删除账号？',
+      message: '将删除「' + (account ? account.name : '该账号') + '」及其本机浏览器登录态，不可恢复。',
+      confirmText: '删除',
+      danger: true,
+      onConfirm: function () {
+        if (MOCK) {
+          batchAccounts = batchAccounts.filter(function (item) { return item.id !== id; });
+          renderBatchAccounts();
+          toast('账号已删除（演示）', 'success');
+          return;
+        }
+        var api = bindings();
+        if (!api || typeof api.RemoveBatchAccount !== 'function') throw new Error('未检测到 App 绑定');
+        return api.RemoveBatchAccount(id).then(function () {
+          toast('账号已删除', 'success');
+          return loadBatchAccounts();
+        });
+      }
+    });
+  }
+
   /* ───────────── 导航 ───────────── */
   function routeFromHash() {
     var raw = String(window.location.hash || '').replace(/^#\/?/, '');
@@ -906,6 +1113,7 @@
       if (!opts || opts.keepScroll !== true) scroll.scrollTop = 0;
     }
     if (page === 'review') { if (state) loadLogs(); startLogPolling(); }
+    if (page === 'script') loadBatchAccounts();
     else stopLogPolling();
     if (page === 'ai' && !aiDirty) fillAIForm();
     if (page === 'settings' && !settingsDirty) fillSettingsForm();
@@ -1257,6 +1465,28 @@
     if (goRun) goRun.addEventListener('click', function () { navigate('script'); });
     var viewLogs = $('#btnScriptViewLogs');
     if (viewLogs) viewLogs.addEventListener('click', function () { navigate('review'); });
+    var batchList = $('#batchAccountList');
+    if (batchList) {
+      batchList.addEventListener('click', function (event) {
+        var trigger = event.target && event.target.closest ? event.target.closest('[data-batch-action]') : null;
+        if (!trigger) return;
+        var action = trigger.getAttribute('data-batch-action');
+        var id = trigger.getAttribute('data-batch-id');
+        if (action === 'add') showBatchAddForm(true);
+        else if (action === 'login') startBatchLogin(id);
+        else if (action === 'remove') removeBatchAccount(id);
+      });
+    }
+    var addSave = $('#btnBatchAddSave');
+    if (addSave) addSave.addEventListener('click', submitBatchAccount);
+    var addCancel = $('#btnBatchAddCancel');
+    if (addCancel) addCancel.addEventListener('click', function () { showBatchAddForm(false); });
+    var addInput = $('#batchAccountName');
+    if (addInput) addInput.addEventListener('keydown', function (event) { if (event.key === 'Enter') { event.preventDefault(); submitBatchAccount(); } });
+    var loginDone = $('#btnBatchLoginDone');
+    if (loginDone) loginDone.addEventListener('click', completeBatchLogin);
+    var loginCancel = $('#btnBatchLoginCancel');
+    if (loginCancel) loginCancel.addEventListener('click', cancelBatchLogin);
     var goAI = $('#btnGoAI');
     if (goAI) goAI.addEventListener('click', function () { navigate('ai'); });
     var goOpen = $('#btnGoOpenYuketang');
@@ -1431,6 +1661,7 @@
         var rt = runtime();
         if (rt) {
           try { rt.EventsOn('state:changed', scheduleRefresh); } catch (e) { /* 轮询兜底 */ }
+          try { rt.EventsOn('batch:changed', function () { if (currentPage === 'script') loadBatchAccounts(); }); } catch (e) { /* 忽略 */ }
           try {
             rt.EventsOn('app:notice', function (message) {
               var content = typeof message === 'string' ? message : '';

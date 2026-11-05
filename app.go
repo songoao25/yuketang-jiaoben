@@ -16,6 +16,7 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/songoao25/yuketang-jiaoben/internal/batch"
 	"github.com/songoao25/yuketang-jiaoben/internal/browser"
 	"github.com/songoao25/yuketang-jiaoben/internal/config"
 	"github.com/songoao25/yuketang-jiaoben/internal/model"
@@ -38,6 +39,12 @@ type App struct {
 	externalOwner string // gui | daemon | 空
 	updateInfo    model.UpdateInfo
 	updateChecked bool
+
+	// 多账号批量（见 .private/batch-plan.md）
+	batchMu           sync.Mutex
+	batchStore        *batch.Store
+	batchLogin        *batch.LoginSession
+	batchLoginAccount string
 }
 
 // NewApp 创建窗口后端。scriptSource 是内置用户脚本正文。
@@ -57,6 +64,7 @@ func NewApp(store *config.Store, scriptSource, appVersion string) (*App, error) 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	startDockIconSync()
+	a.initBatch()
 	if a.store.LoadSettings().AutoStart {
 		if _, err := a.StartService(); err != nil {
 			a.emit("自动启动本地服务失败：" + err.Error())
@@ -66,6 +74,7 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	a.closeBatchLogin()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.srv != nil {
