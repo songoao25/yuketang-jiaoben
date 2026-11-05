@@ -1,0 +1,99 @@
+name: Desktop release (macOS Sparkle)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  SPARKLE_VERSION: "2.10.1"
+  SPARKLE_SHA256: "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27"
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: go.sum
+
+      - name: Verify version matches tag
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          CONFIG_VERSION="$(python3 -c 'import json;print(json.load(open("wails.json"))["info"]["productVersion"])')"
+          CODE_VERSION="$(sed -n 's/var appVersion = "\(.*\)"/\1/p' version.go)"
+          if [ "$VERSION" != "$CONFIG_VERSION" ] || [ "$VERSION" != "$CODE_VERSION" ]; then
+            echo "tag ${GITHUB_REF_NAME} 与 wails.json/version.go 不一致"
+            exit 1
+          fi
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.1
+
+      - name: Fetch Sparkle
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/Sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          echo "${SPARKLE_SHA256}  $RUNNER_TEMP/Sparkle.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/sparkle"
+          tar -xf "$RUNNER_TEMP/Sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          CERT="$RUNNER_TEMP/build_cert.p12"
+          security create-keychain -p "$APPLE_CERT_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$APPLE_CERT_PASSWORD" "$KEYCHAIN"
+          printf '%s' "$APPLE_CERT_P12_BASE64" | base64 --decode > "$CERT"
+          security import "$CERT" -k "$KEYCHAIN" -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$APPLE_CERT_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Build and package
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          FEED_URL: "https://github.com/songoao25/yuketang-jiaoben/releases/latest/download/appcast.xml"
+        run: |
+          set -euo pipefail
+          SPARKLE_DIR="$RUNNER_TEMP/sparkle" bash tools/package-release-sparkle.sh "$GITHUB_REF_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release
+          path: dist/release
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-release
+          path: dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "${GITHUB_REF_NAME}" dist/*.zip dist/appcast.xml dist/SHA256SUMS.txt \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "雨课助手 ${VERSION}" \
+            --notes "Sparkle 自动更新版（Apple Development 签名）。已安装 Sparkle 版本的用户可直接在 App 内更新；旧版需手动安装本版本一次。"
