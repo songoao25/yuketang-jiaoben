@@ -13,7 +13,7 @@
   "info": {
     "companyName": "yuketang-jiaoben",
     "productName": "雨课助手",
-    "productVersion": "1.1.1",
+    "productVersion": "1.1.2",
     "copyright": "GPL-3.0",
     "comments": "本机管理台：启动服务、安装脚本、配置 AI 答题"
   }
