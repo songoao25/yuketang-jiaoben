@@ -9,16 +9,21 @@
   'use strict';
 
   var MOCK = new URLSearchParams(window.location.search).get('mock') === '1';
-  var PAGES = ['overview', 'script', 'ai', 'settings'];
+  var PAGES = ['overview', 'script', 'review', 'settings'];
+  // AI 配置不再占顶级导航，作为设置下的子页面（与超星助手把 AI/引擎配置收在设置里一致）
+  var SUB_PAGES = ['ai'];
+  function isPage(page) { return PAGES.indexOf(page) >= 0 || SUB_PAGES.indexOf(page) >= 0; }
   var PAGE_META = {
     overview: { title: '概览', sub: '本地服务、用户脚本与 AI 配置' },
     script: { title: '刷课', sub: '按顺序准备，然后在网页里开始' },
+    review: { title: '复核', sub: '运行日志与配置同步记录' },
     ai: { title: 'AI 配置', sub: '自动答题与图文讨论回复使用的模型' },
     settings: { title: '设置', sub: '本机运行参数与外观' }
   };
   var PAGE_ACTIONS = {
     overview: [],
-    script: ['btnScriptOpenYuketang'],
+    script: ['btnScriptOpenYuketang', 'btnScriptViewLogs'],
+    review: [],
     ai: ['aiDirtyChip', 'btnSaveAI'],
     settings: ['settingsDirtyChip', 'btnSaveSettings']
   };
@@ -860,27 +865,28 @@
   /* ───────────── 导航 ───────────── */
   function routeFromHash() {
     var raw = String(window.location.hash || '').replace(/^#\/?/, '');
-    return PAGES.indexOf(raw) >= 0 ? raw : 'overview';
+    return isPage(raw) ? raw : 'overview';
   }
   function navigate(page) {
-    if (PAGES.indexOf(page) < 0) page = 'overview';
+    if (!isPage(page)) page = 'overview';
     if (routeFromHash() === page) setPage(page);
     else window.location.hash = '#' + page;
   }
   function setPage(page, opts) {
-    if (PAGES.indexOf(page) < 0) page = 'overview';
+    if (!isPage(page)) page = 'overview';
     currentPage = page;
     var meta = PAGE_META[page];
     document.title = meta.title + ' · 雨课助手';
 
     var actions = PAGE_ACTIONS[page] || [];
-    ['btnScriptOpenYuketang', 'aiDirtyChip', 'btnSaveAI', 'settingsDirtyChip', 'btnSaveSettings'].forEach(function (id) {
+    ['btnScriptOpenYuketang', 'btnScriptViewLogs', 'aiDirtyChip', 'btnSaveAI', 'settingsDirtyChip', 'btnSaveSettings'].forEach(function (id) {
       setHidden('#' + id, actions.indexOf(id) < 0);
     });
     updateDirtyChips();
 
+    var navPage = page === 'ai' ? 'settings' : page;
     $$('.nav-item').forEach(function (btn) {
-      var active = btn.getAttribute('data-page') === page;
+      var active = btn.getAttribute('data-page') === navPage;
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
       btn.tabIndex = active ? 0 : -1;
@@ -899,7 +905,7 @@
       scroll.classList.toggle('is-fixed', false);
       if (!opts || opts.keepScroll !== true) scroll.scrollTop = 0;
     }
-    if (page === 'script') { if (state) loadLogs(); startLogPolling(); }
+    if (page === 'review') { if (state) loadLogs(); startLogPolling(); }
     else stopLogPolling();
     if (page === 'ai' && !aiDirty) fillAIForm();
     if (page === 'settings' && !settingsDirty) fillSettingsForm();
@@ -1236,10 +1242,10 @@
     if (btnRefreshState) {
       btnRefreshState.addEventListener('click', function () {
         runBtn(btnRefreshState, function () {
-          if (MOCK) return wait(180).then(function () { refreshMock(); if (currentPage === 'script') loadLogs(); toast('状态已刷新', 'success'); });
+          if (MOCK) return wait(180).then(function () { refreshMock(); if (currentPage === 'review') loadLogs(); toast('状态已刷新', 'success'); });
           return refreshState({ silent: true }).then(function (ok) {
             if (!ok) throw new Error('读取状态失败');
-            if (currentPage === 'script') loadLogs();
+            if (currentPage === 'review') loadLogs();
             toast('状态已刷新', 'success');
           });
         }, '刷新状态');
@@ -1249,6 +1255,8 @@
     /* 脚本页 */
     var goRun = $('#btnGoRun');
     if (goRun) goRun.addEventListener('click', function () { navigate('script'); });
+    var viewLogs = $('#btnScriptViewLogs');
+    if (viewLogs) viewLogs.addEventListener('click', function () { navigate('review'); });
     var goAI = $('#btnGoAI');
     if (goAI) goAI.addEventListener('click', function () { navigate('ai'); });
     var goOpen = $('#btnGoOpenYuketang');
@@ -1257,6 +1265,10 @@
     if (runOpen) runOpen.addEventListener('click', function () { doOpenYuketang(runOpen); });
     var goAIConfig = $('#btnGoAIConfig');
     if (goAIConfig) goAIConfig.addEventListener('click', function () { navigate('ai'); });
+    var openAIConfig = $('#btnOpenAIConfig');
+    if (openAIConfig) openAIConfig.addEventListener('click', function () { navigate('ai'); });
+    var aiBack = $('#btnAIBack');
+    if (aiBack) aiBack.addEventListener('click', function () { navigate('settings'); });
     var showOnboardingFromRun = $('#btnShowOnboardingFromRun');
     if (showOnboardingFromRun) showOnboardingFromRun.addEventListener('click', onboardingOpen);
     var btnScriptOpen = $('#btnScriptOpenYuketang');
@@ -1370,7 +1382,7 @@
     document.addEventListener('visibilitychange', function () {
       if (document.hidden || MOCK) return;
       refreshState({ silent: true });
-      if (currentPage === 'script') loadLogs();
+      if (currentPage === 'review') loadLogs();
     });
   }
 
@@ -1410,7 +1422,7 @@
     if (MOCK) {
       window.setTimeout(function () {
         applyState(normalizeState(mockState));
-        if (currentPage === 'script') loadLogs();
+        if (currentPage === 'review') loadLogs();
         runDemo(new URLSearchParams(window.location.search).get('demo'));
       }, 420);
     } else {
@@ -1428,7 +1440,7 @@
           } catch (e) { /* 轮询兜底 */ }
         }
         startPolling();
-        if (currentPage === 'script') loadLogs();
+        if (currentPage === 'review') loadLogs();
       });
     }
 

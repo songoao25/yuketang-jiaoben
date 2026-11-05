@@ -67,8 +67,8 @@
           <button class="nav-item" type="button" role="tab" id="tab-script" data-page="script" aria-controls="page-script" aria-selected="false" aria-label="刷课">
             <svg class="icon nav-icon" aria-hidden="true"><use href="#i-play" /></svg><span class="nav-text">刷课</span><span class="nav-kbd" aria-hidden="true">⌘2</span>
           </button>
-          <button class="nav-item" type="button" role="tab" id="tab-ai" data-page="ai" aria-controls="page-ai" aria-selected="false" aria-label="AI 配置">
-            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-key" /></svg><span class="nav-text">AI 配置</span><span class="nav-kbd" aria-hidden="true">⌘3</span>
+          <button class="nav-item" type="button" role="tab" id="tab-review" data-page="review" aria-controls="page-review" aria-selected="false" aria-label="复核">
+            <svg class="icon nav-icon" aria-hidden="true"><use href="#i-file" /></svg><span class="nav-text">复核</span><span class="nav-kbd" aria-hidden="true">⌘3</span>
           </button>
           <div class="nav-label" role="presentation">系统</div>
           <button class="nav-item" type="button" role="tab" id="tab-settings" data-page="settings" aria-controls="page-settings" aria-selected="false" aria-label="设置">
@@ -210,6 +210,7 @@
               <p class="page-sub">按顺序准备，然后在网页里开始</p>
             </div>
             <div class="page-head-side">
+              <button class="btn btn-sm" type="button" id="btnScriptViewLogs" aria-label="查看运行日志">查看日志</button>
               <button class="btn btn-primary btn-sm" type="button" id="btnScriptOpenYuketang" aria-label="打开雨课堂">打开雨课堂</button>
             </div>
           </header>
@@ -299,6 +300,17 @@
             </div>
           </section>
 
+        </section>
+
+        <!-- 03 复核（实际内容是运行日志） -->
+        <section class="page" id="page-review" role="tabpanel" aria-labelledby="tab-review" data-page="review" hidden>
+          <header class="page-head">
+            <div class="page-heading">
+              <h1>复核</h1>
+              <p class="page-sub">运行日志与配置同步记录，可随时回看</p>
+            </div>
+          </header>
+
           <section class="group" aria-labelledby="groupRunLogs">
             <h2 class="group-title" id="groupRunLogs">运行日志</h2>
             <div class="log-card log-card-runtime" aria-label="运行日志">
@@ -335,6 +347,7 @@
             </div>
             <div class="page-head-side">
               <span class="dirty-chip" id="aiDirtyChip" hidden>未保存</span>
+              <button class="btn" type="button" id="btnAIBack" aria-label="返回设置">返回设置</button>
               <button class="btn btn-primary" type="button" id="btnSaveAI" aria-label="保存 AI 配置">保存配置</button>
             </div>
           </header>
@@ -383,7 +396,10 @@
                 </div>
               </div>
               <div class="row">
-                <div class="row-copy"><label class="row-title" for="aiFormat">API 格式</label></div>
+                <div class="row-copy">
+                  <label class="row-title" for="aiFormat">API 格式</label>
+                  <div class="row-desc">DeepSeek、OpenAI、Kimi、通义都选「OpenAI 兼容」</div>
+                </div>
                 <div class="row-control">
                   <span class="select-wrap select-md">
                     <select id="aiFormat" aria-label="API 格式">
@@ -394,7 +410,10 @@
                 </div>
               </div>
               <div class="row">
-                <div class="row-copy"><label class="row-title" for="aiAuth">认证方式</label></div>
+                <div class="row-copy">
+                  <label class="row-title" for="aiAuth">认证方式</label>
+                  <div class="row-desc">DeepSeek 等绝大多数服务用「Bearer Token」；Claude 官方用「x-api-key」</div>
+                </div>
                 <div class="row-control">
                   <span class="select-wrap select-md">
                     <select id="aiAuth" aria-label="认证方式">
@@ -407,7 +426,7 @@
               <div class="row">
                 <div class="row-copy">
                   <label class="row-title" for="aiKey">API Key</label>
-                  <div class="row-desc">仅保存在本机配置文件，不会上传</div>
+                  <div class="row-desc">在服务商控制台创建，形如 sk-…；只保存在本机，不会上传</div>
                 </div>
                 <div class="row-control">
                   <div class="input-group">
@@ -612,6 +631,21 @@
                 </div>
               </section>
 
+              <section class="group" aria-labelledby="groupAI">
+                <h2 class="group-title" id="groupAI">自动答题</h2>
+                <div class="group-box">
+                  <div class="row">
+                    <div class="row-copy">
+                      <div class="row-title">AI 模型与密钥</div>
+                      <div class="row-desc">服务商、API Key、自动作答与讨论回复</div>
+                    </div>
+                    <div class="row-control">
+                      <button class="btn btn-sm" type="button" id="btnOpenAIConfig" aria-label="配置 AI 模型与密钥">配置</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="group-note">配置只保存在本机，打开雨课堂时由网页脚本自动同步。</p>
+              </section>
               <section class="group" aria-labelledby="groupData">
                 <h2 class="group-title" id="groupData">数据与关于</h2>
                 <div class="group-box">

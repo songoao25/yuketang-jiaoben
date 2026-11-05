@@ -383,7 +383,7 @@ label,
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 58px 10px 12px;
+  padding: 58px 12px 12px;
 }
 
 /* 内容区 */
@@ -402,7 +402,7 @@ label,
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 32px 20px;
+  padding: 16px 32px 24px;
 }
 
 .page {
@@ -452,7 +452,7 @@ label,
   font-size: 11px;
   font-weight: 600;
   color: var(--label-3);
-  padding: 16px 10px 5px;
+  padding: 16px 12px 8px;
   user-select: none;
 }
 
@@ -509,7 +509,7 @@ label,
 
 .nav-kbd {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   color: var(--label-3);
   opacity: 0;
   transition: opacity 140ms ease;
@@ -569,7 +569,7 @@ label,
 }
 
 .sidebar-version {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--label-3);
   padding-left: 14px;
 }
@@ -586,7 +586,7 @@ label,
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .page-heading {
@@ -622,14 +622,14 @@ label,
   border-radius: 999px;
   background: var(--orange-soft);
   color: var(--orange-text);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
 }
 
 /* ────────────────────────────── 6. 分组列表 ────────────────────────────── */
 .group {
-  margin: 0 0 22px;
+  margin: 0 0 24px;
   break-inside: avoid;
 }
 
@@ -638,7 +638,7 @@ label,
 }
 
 .group-title {
-  margin: 0 12px 6px;
+  margin: 0 12px 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--label-2);
@@ -652,7 +652,7 @@ label,
 }
 
 .group-note {
-  margin: 6px 12px 0;
+  margin: 8px 12px 0;
   font-size: 11px;
   line-height: 1.5;
   color: var(--label-2);
@@ -660,7 +660,7 @@ label,
 
 .group-note code {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   padding: 1px 4px;
   border-radius: 4px;
   background: var(--fill);
@@ -674,7 +674,7 @@ label,
   align-items: center;
   gap: 12px;
   min-height: 40px;
-  padding: 5px 14px;
+  padding: 6px 14px;
   transition: background-color 120ms ease;
 }
 
@@ -713,7 +713,7 @@ label,
 }
 
 .row-title-extra {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--label-2);
   font-weight: 400;
 }
@@ -782,7 +782,7 @@ label,
   border-radius: 999px;
   background: var(--fill);
   color: var(--label-2);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -846,7 +846,7 @@ label,
   align-items: center;
   gap: 12px;
   min-height: 40px;
-  padding: 5px 14px;
+  padding: 6px 14px;
 }
 
 .step-row + .step-row::before {
@@ -909,7 +909,7 @@ label,
   background: var(--btn-bg);
   color: var(--label);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 400;
   white-space: nowrap;
   cursor: pointer;
@@ -1067,12 +1067,12 @@ label,
   background: var(--field-bg);
   color: var(--label);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .input.mono {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .input::placeholder {
@@ -1155,7 +1155,7 @@ label,
   background: var(--field-bg);
   color: var(--label);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   cursor: pointer;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -1310,7 +1310,7 @@ label,
   background: var(--fill);
   color: var(--label-2);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -1323,7 +1323,7 @@ label,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--label-2);
   white-space: nowrap;
   margin-right: 2px;
@@ -1380,7 +1380,7 @@ label,
   align-items: center;
   gap: 5px;
   min-width: 0;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--label-3);
 }
 
@@ -1391,7 +1391,7 @@ label,
 }
 
 .log-card-path .mono {
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1411,7 +1411,7 @@ label,
   align-items: baseline;
   padding: 6px 14px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -1431,7 +1431,7 @@ label,
 
 .log-level {
   font-family: var(--font-ui);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -1501,14 +1501,14 @@ label,
 .settings-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  gap: 22px;
+  gap: 24px;
   align-items: start;
 }
 
 .settings-col {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
   min-width: 0;
 }
 
@@ -1559,7 +1559,7 @@ label,
 }
 
 .about-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -1773,13 +1773,13 @@ label,
 
 .modal-title {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .modal-desc {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--label-2);
 }
@@ -1896,7 +1896,7 @@ label,
 /* 窄窗口下工具栏与页头自适应 */
 @media (max-width: 900px) {
   .toolbar { padding-right: 14px; }
-  .toolbar-sync { font-size: 10.5px; }
+  .toolbar-sync { font-size: 11px; }
 }
 
 /* ── 真机主题稳定性：玻璃层叠在主题实色之上，避免强制主题时透出系统深色材质导致侧栏发灰 ── */
@@ -1991,7 +1991,7 @@ html.no-motion *::after {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--label-2);
 }
@@ -2048,7 +2048,7 @@ html.no-motion *::after {
 
 .onboarding-note {
   margin: 10px 0 0;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--label-3);
 }
 
@@ -2291,7 +2291,7 @@ html.no-motion *::after {
 }
 
 .sidebar-version {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--label-3);
 }
 
@@ -2448,4 +2448,192 @@ html.mock .mock-lights {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   最终令牌（与「超星助手」逐项一致）
+   亮色纯白底黑字；暗色 Apple 分层深色（#1c1c1e / #2c2c2e，不用纯黑直给）
+   ========================================================================== */
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-glass: rgba(255, 255, 255, 0.92);
+  --sidebar-border: rgba(0, 0, 0, 0.10);
+  --card: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.10);
+  --card-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --inset: rgba(0, 0, 0, 0.04);
+  --row-hover: rgba(0, 0, 0, 0.035);
+  --label: #000000;
+  --label-2: #4b4b4b;
+  --label-3: #767676;
+  --separator: #e3e3e3;
+  --fill: rgba(0, 0, 0, 0.045);
+  --fill-2: rgba(0, 0, 0, 0.08);
+  --accent: #007aff;
+  --accent-hover: #0a84ff;
+  --accent-soft: rgba(0, 122, 255, 0.12);
+  --green: #34c759; --green-text: #248a3d; --green-soft: rgba(52, 199, 89, 0.14);
+  --orange: #ff9500; --orange-text: #b25000; --orange-soft: rgba(255, 149, 0, 0.14);
+  --red: #ff3b30; --red-text: #d70015; --red-soft: rgba(255, 59, 48, 0.12);
+  --purple: #af52de; --indigo: #5856d6; --gray: #8e8e93;
+  --field-bg: #ffffff;
+  --field-border: #d0d0d0;
+  --btn-bg: rgba(0, 0, 0, 0.05);
+  --btn-border: transparent;
+  --btn-hover: rgba(0, 0, 0, 0.08);
+  --btn-active: rgba(0, 0, 0, 0.12);
+  --switch-off: #e5e5e5;
+  --focus-ring: rgba(0, 122, 255, 0.32);
+  --scroll-thumb: rgba(0, 0, 0, 0.20);
+  --scroll-thumb-hover: rgba(0, 0, 0, 0.32);
+  --toast-bg: rgba(28, 28, 30, 0.94);
+  --toast-border: rgba(255, 255, 255, 0.10);
+  --toast-text: #ffffff;
+  --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+  --sk-base: rgba(0, 0, 0, 0.05);
+  --sk-shine: rgba(255, 255, 255, 0.60);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1c1c1e;
+    --sidebar: #1c1c1e;
+    --sidebar-glass: rgba(28, 28, 30, 0.82);
+    --sidebar-border: rgba(255, 255, 255, 0.10);
+    --card: #2c2c2e;
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --inset: rgba(255, 255, 255, 0.06);
+    --row-hover: rgba(255, 255, 255, 0.055);
+    --label: #f5f5f7;
+    --label-2: #a1a1a6;
+    --label-3: #8e8e93;
+    --separator: #38383a;
+    --fill: rgba(255, 255, 255, 0.07);
+    --fill-2: rgba(255, 255, 255, 0.12);
+    --accent: #0a84ff;
+    --accent-hover: #3d9bff;
+    --accent-soft: rgba(10, 132, 255, 0.22);
+    --green: #30d158; --green-text: #30d158; --green-soft: rgba(48, 209, 88, 0.18);
+    --orange: #ff9f0a; --orange-text: #ff9f0a; --orange-soft: rgba(255, 159, 10, 0.18);
+    --red: #ff453a; --red-text: #ff453a; --red-soft: rgba(255, 69, 58, 0.16);
+    --purple: #bf5af2; --indigo: #7d7aff; --gray: #8e8e93;
+    --field-bg: #1c1c1e;
+    --field-border: #545458;
+    --btn-bg: rgba(255, 255, 255, 0.08);
+    --btn-border: transparent;
+    --btn-hover: rgba(255, 255, 255, 0.12);
+    --btn-active: rgba(255, 255, 255, 0.16);
+    --switch-off: #39393d;
+    --focus-ring: rgba(10, 132, 255, 0.45);
+    --scroll-thumb: rgba(255, 255, 255, 0.20);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.32);
+    --toast-bg: rgba(58, 58, 62, 0.96);
+    --toast-border: rgba(255, 255, 255, 0.12);
+    --toast-text: #f5f5f7;
+    --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.50);
+    --sk-base: rgba(255, 255, 255, 0.06);
+    --sk-shine: rgba(255, 255, 255, 0.10);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1c1c1e;
+  --sidebar: #1c1c1e;
+  --sidebar-glass: rgba(28, 28, 30, 0.82);
+  --sidebar-border: rgba(255, 255, 255, 0.10);
+  --card: #2c2c2e;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --inset: rgba(255, 255, 255, 0.06);
+  --row-hover: rgba(255, 255, 255, 0.055);
+  --label: #f5f5f7;
+  --label-2: #a1a1a6;
+  --label-3: #8e8e93;
+  --separator: #38383a;
+  --fill: rgba(255, 255, 255, 0.07);
+  --fill-2: rgba(255, 255, 255, 0.12);
+  --accent: #0a84ff;
+  --accent-hover: #3d9bff;
+  --accent-soft: rgba(10, 132, 255, 0.22);
+  --green: #30d158; --green-text: #30d158; --green-soft: rgba(48, 209, 88, 0.18);
+  --orange: #ff9f0a; --orange-text: #ff9f0a; --orange-soft: rgba(255, 159, 10, 0.18);
+  --red: #ff453a; --red-text: #ff453a; --red-soft: rgba(255, 69, 58, 0.16);
+  --purple: #bf5af2; --indigo: #7d7aff; --gray: #8e8e93;
+  --field-bg: #1c1c1e;
+  --field-border: #545458;
+  --btn-bg: rgba(255, 255, 255, 0.08);
+  --btn-border: transparent;
+  --btn-hover: rgba(255, 255, 255, 0.12);
+  --btn-active: rgba(255, 255, 255, 0.16);
+  --switch-off: #39393d;
+  --focus-ring: rgba(10, 132, 255, 0.45);
+  --scroll-thumb: rgba(255, 255, 255, 0.20);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.32);
+  --toast-bg: rgba(58, 58, 62, 0.96);
+  --toast-border: rgba(255, 255, 255, 0.12);
+  --toast-text: #f5f5f7;
+  --modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.50);
+  --sk-base: rgba(255, 255, 255, 0.06);
+  --sk-shine: rgba(255, 255, 255, 0.10);
+}
+
+/* 页面宽度 / 居中：普通页 660，宽页 1440 居中（与超星助手一致） */
+.page { max-width: 660px; margin-left: auto; margin-right: auto; }
+.page-wide { width: 100%; max-width: 1440px; margin: 0 auto; }
+
+/* 行图标统一单色线性（与超星助手一致） */
+.row-icon,
+.row-icon.is-blue,
+.row-icon.is-green,
+.row-icon.is-orange,
+.row-icon.is-purple,
+.row-icon.is-indigo,
+.row-icon.is-gray {
+  background: var(--fill);
+  background-image: none;
+  color: var(--label-2);
+  box-shadow: none;
+}
+.row-icon .icon { stroke-width: 1.6; }
+
+/* 教程可选要点（与超星助手同款） */
+.onboarding-points {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.onboarding-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--label-2);
+}
+.onboarding-points li::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  margin-top: 8px;
+}
+
+/* 关于/教程里的「雨」标记：思源宋体单字，跟随黑白主题（与超星助手一致） */
+.about-icon-app {
+  color: var(--label);
+  background: var(--card);
+  border: 1px solid var(--separator);
+  font-family: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
 }
