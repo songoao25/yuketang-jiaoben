@@ -871,6 +871,7 @@
 
   /* ───────────── 多账号批量 ───────────── */
   var batchAccounts = [];
+  var batchQueueState = null;
   var batchLoginAccount = '';
   var batchLoginTimer = null;
   var batchLoginDone = false;
@@ -1044,6 +1045,86 @@
     if (api && typeof api.CancelBatchLogin === 'function') api.CancelBatchLogin(id).catch(function () {});
   }
 
+  function renderBatchQueue(state) {
+    batchQueueState = state || null;
+    var textEl = $('#batchQueueText');
+    var startBtn = $('#btnBatchStart');
+    var stopBtn = $('#btnBatchStop');
+    var running = !!(state && (state.state === 'running' || state.state === 'stopping'));
+    if (startBtn) startBtn.hidden = running;
+    if (stopBtn) stopBtn.hidden = !running;
+    if (textEl) {
+      if (!state || !state.state || state.state === 'idle') {
+        textEl.textContent = batchAccounts.length
+          ? '已登录账号会按顺序运行；账号之间会自动停顿'
+          : '先添加账号并完成登录，才能开始批量';
+      } else if (state.state === 'running') {
+        var items = Array.isArray(state.items) ? state.items : [];
+        var total = items.length;
+        var done = items.filter(function (item) { return ['ok', 'failed', 'needs_login', 'cancelled', 'skipped'].indexOf(item.status) >= 0; }).length;
+        var current = null;
+        items.forEach(function (item) { if (item.account_id === state.current) current = item; });
+        textEl.textContent = '批量运行中 ' + done + '/' + total + (current ? ' · 当前：' + current.name : '');
+      } else if (state.state === 'stopping') {
+        textEl.textContent = '正在停止…';
+      } else if (state.state === 'done') {
+        var okCount = (state.items || []).filter(function (item) { return item.status === 'ok'; }).length;
+        textEl.textContent = '批量结束：成功 ' + okCount + '/' + (state.items || []).length;
+      } else {
+        textEl.textContent = state.message || '—';
+      }
+    }
+  }
+
+  function loadBatchQueue() {
+    if (MOCK) { renderBatchQueue(batchQueueState || { state: 'idle' }); return Promise.resolve(true); }
+    var api = bindings();
+    if (!api || typeof api.GetBatchState !== 'function') { renderBatchQueue({ state: 'idle' }); return Promise.resolve(false); }
+    return Promise.resolve().then(function () { return api.GetBatchState(); })
+      .then(function (state) { renderBatchQueue(state); return true; })
+      .catch(function () { renderBatchQueue({ state: 'idle' }); return false; });
+  }
+
+  function startBatch() {
+    var ready = batchAccounts.filter(function (account) { return account.login_state === 'logged_in'; });
+    if (!ready.length) { toast('没有已登录的账号，先完成登录', 'warning'); return; }
+    openConfirm({
+      title: '开始批量运行？',
+      message: '将按顺序运行 ' + ready.length + ' 个已登录账号，账号之间会自动停顿。运行期间请保持 App 与电脑唤醒；可随时停止。',
+      confirmText: '开始批量',
+      danger: false,
+      onConfirm: function () {
+        if (MOCK) {
+          renderBatchQueue({ state: 'running', current: ready[0].id, items: ready.map(function (account) { return { account_id: account.id, name: account.name, status: 'queued' }; }) });
+          var index = 0;
+          var tick = window.setInterval(function () {
+            if (index >= ready.length) { window.clearInterval(tick); renderBatchQueue({ state: 'done', items: ready.map(function (account) { return { account_id: account.id, name: account.name, status: 'ok' }; }) }); return; }
+            renderBatchQueue({ state: 'running', current: ready[index].id, items: ready.map(function (account, i) { return { account_id: account.id, name: account.name, status: i < index ? 'ok' : (i === index ? 'running' : 'queued') }; }) });
+            index += 1;
+          }, 1200);
+          return;
+        }
+        var api = bindings();
+        if (!api || typeof api.StartBatch !== 'function') throw new Error('未检测到 App 绑定');
+        return api.StartBatch(ready.map(function (account) { return account.id; })).then(function (state) {
+          renderBatchQueue(state);
+          toast('已开始批量运行', 'success');
+          loadBatchAccounts();
+        });
+      }
+    });
+  }
+
+  function stopBatch() {
+    if (MOCK) { renderBatchQueue({ state: 'done', items: (batchQueueState && batchQueueState.items) || [] }); toast('已停止（演示）', 'success'); return; }
+    var api = bindings();
+    if (!api || typeof api.StopBatch !== 'function') { toast('未检测到 App 绑定', 'error'); return; }
+    Promise.resolve().then(function () { return api.StopBatch(); }).then(function (state) {
+      renderBatchQueue(state);
+      toast('已请求停止，当前账号结束后不再继续', 'success');
+    }).catch(function (err) { toast('停止失败：' + errMsg(err), 'error'); });
+  }
+
   function removeBatchAccount(id) {
     var account = null;
     batchAccounts.forEach(function (item) { if (item.id === id) account = item; });
@@ -1113,7 +1194,7 @@
       if (!opts || opts.keepScroll !== true) scroll.scrollTop = 0;
     }
     if (page === 'review') { if (state) loadLogs(); startLogPolling(); }
-    if (page === 'script') loadBatchAccounts();
+    if (page === 'script') { loadBatchAccounts(); loadBatchQueue(); }
     else stopLogPolling();
     if (page === 'ai' && !aiDirty) fillAIForm();
     if (page === 'settings' && !settingsDirty) fillSettingsForm();
@@ -1487,6 +1568,10 @@
     if (loginDone) loginDone.addEventListener('click', completeBatchLogin);
     var loginCancel = $('#btnBatchLoginCancel');
     if (loginCancel) loginCancel.addEventListener('click', cancelBatchLogin);
+    var startBatchBtn = $('#btnBatchStart');
+    if (startBatchBtn) startBatchBtn.addEventListener('click', startBatch);
+    var stopBatchBtn = $('#btnBatchStop');
+    if (stopBatchBtn) stopBatchBtn.addEventListener('click', stopBatch);
     var goAI = $('#btnGoAI');
     if (goAI) goAI.addEventListener('click', function () { navigate('ai'); });
     var goOpen = $('#btnGoOpenYuketang');
@@ -1662,6 +1747,7 @@
         if (rt) {
           try { rt.EventsOn('state:changed', scheduleRefresh); } catch (e) { /* 轮询兜底 */ }
           try { rt.EventsOn('batch:changed', function () { if (currentPage === 'script') loadBatchAccounts(); }); } catch (e) { /* 忽略 */ }
+          try { rt.EventsOn('batch:state', function (state) { if (currentPage === 'script') { renderBatchQueue(state); loadBatchAccounts(); } }); } catch (e) { /* 忽略 */ }
           try {
             rt.EventsOn('app:notice', function (message) {
               var content = typeof message === 'string' ? message : '';

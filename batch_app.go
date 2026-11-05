@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -216,4 +217,133 @@ func (a *App) closeBatchLogin() {
 		a.batchLogin = nil
 		a.batchLoginAccount = ""
 	}
+}
+
+// ensureBatchQueue 懒初始化批量队列（执行器为无头 Chrome + 内置用户脚本）。
+func (a *App) ensureBatchQueue() (*batch.Queue, error) {
+	a.batchMu.Lock()
+	if a.batchQueue != nil {
+		defer a.batchMu.Unlock()
+		return a.batchQueue, nil
+	}
+	store := a.batchStore
+	scriptSource := a.scriptSource
+	a.batchMu.Unlock()
+	if store == nil {
+		return nil, errors.New("多账号功能未初始化，请重启应用")
+	}
+
+	runner := &batch.YKTRunner{
+		ScriptSource: scriptSource,
+		ProfileDir: func(account batch.Account) (string, error) {
+			return store.ProfileDir(account.ID)
+		},
+		Headless:     true,
+		StartTimeout: 90 * time.Second,
+		RunTimeout:   4 * time.Hour,
+		PollInterval: 500 * time.Millisecond,
+	}
+	queue := batch.NewQueue(runner, func(state batch.QueueState) {
+		a.recordBatchQueueState(state)
+		if a.ctx != nil {
+			wruntime.EventsEmit(a.ctx, "batch:state", state)
+		}
+	}, func(accountID, level, text string) {
+		if a.ctx != nil {
+			wruntime.EventsEmit(a.ctx, "batch:log", map[string]string{
+				"account_id": accountID, "level": level, "text": text,
+			})
+		}
+	})
+	// 账号之间随机停顿 30–90 秒，避免同一时间密集请求。
+	queue.SetPacing(func(completed int) time.Duration {
+		return time.Duration(30+rand.Intn(61)) * time.Second
+	})
+
+	a.batchMu.Lock()
+	a.batchQueue = queue
+	a.batchMu.Unlock()
+	return queue, nil
+}
+
+// recordBatchQueueState 把队列终态写回账号库。
+func (a *App) recordBatchQueueState(state batch.QueueState) {
+	a.batchMu.Lock()
+	store := a.batchStore
+	a.batchMu.Unlock()
+	if store == nil {
+		return
+	}
+	for _, item := range state.Items {
+		var result string
+		switch item.Status {
+		case batch.RunOK:
+			result = "ok"
+		case batch.RunFailed:
+			result = "failed"
+		case batch.RunNeedsLogin:
+			result = "needs_login"
+		case batch.RunCancelled:
+			result = "cancelled"
+		default:
+			continue
+		}
+		_ = store.SetLastRun(item.AccountID, result, item.Message)
+	}
+}
+
+// StartBatch 开始顺序批量运行（只运行已登录账号；未登录会提示先登录）。
+func (a *App) StartBatch(ids []string) (batch.QueueState, error) {
+	store, err := a.batchStoreOrErr()
+	if err != nil {
+		return batch.QueueState{}, err
+	}
+	queue, err := a.ensureBatchQueue()
+	if err != nil {
+		return batch.QueueState{}, err
+	}
+	accounts := make([]batch.Account, 0, len(ids))
+	skipped := make([]string, 0)
+	for _, id := range ids {
+		account, ok := store.Get(id)
+		if !ok {
+			continue
+		}
+		if account.LoginState != batch.LoginOK {
+			skipped = append(skipped, account.Name)
+			_ = store.SetLastRun(id, "needs_login", "还没有完成登录")
+			continue
+		}
+		accounts = append(accounts, account)
+	}
+	if len(accounts) == 0 {
+		if len(skipped) > 0 {
+			return batch.QueueState{}, fmt.Errorf("没有已登录的账号：%s", strings.Join(skipped, "、"))
+		}
+		return batch.QueueState{}, errors.New("没有选中可运行的账号")
+	}
+	if err := queue.Start(accounts); err != nil {
+		return batch.QueueState{}, err
+	}
+	a.emitBatchChanged()
+	return queue.Snapshot(), nil
+}
+
+// StopBatch 请求停止当前批量任务。
+func (a *App) StopBatch() batch.QueueState {
+	queue, err := a.ensureBatchQueue()
+	if err != nil {
+		return batch.QueueState{State: "idle"}
+	}
+	queue.Stop()
+	return queue.Snapshot()
+}
+
+// GetBatchState 返回批量队列快照。
+func (a *App) GetBatchState() batch.QueueState {
+	queue, err := a.ensureBatchQueue()
+	if err != nil {
+		return batch.QueueState{State: "idle"}
+	}
+	return queue.Snapshot()
 }

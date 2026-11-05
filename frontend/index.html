@@ -301,11 +301,14 @@
             </div>
           </section>
 
-        </section>
-
           <section class="group" aria-labelledby="groupBatch">
             <h2 class="group-title" id="groupBatch">多账号批量</h2>
             <div class="group-box rows-iconed" id="batchAccountList" aria-live="polite"></div>
+            <div class="batch-queue" id="batchQueueBar">
+              <span class="batch-queue-text" id="batchQueueText">未开始批量</span>
+              <button class="btn btn-sm" type="button" id="btnBatchStart">开始批量</button>
+              <button class="btn btn-sm" type="button" id="btnBatchStop" hidden>停止</button>
+            </div>
             <div class="batch-add" id="batchAddForm" hidden>
               <input class="input" id="batchAccountName" type="text" maxlength="40" placeholder="给账号起个备注，例如：小明" aria-label="账号备注" />
               <button class="btn btn-primary btn-sm" type="button" id="btnBatchAddSave">添加</button>
@@ -318,6 +321,7 @@
             </div>
             <p class="group-note">首次需要你手动登录一次，之后可后台批量；登录态只保存在本机。请确保账号本人知情同意，并遵守平台与学校规定。</p>
           </section>
+        </section>
 
         <!-- 03 复核（实际内容是运行日志） -->
         <section class="page" id="page-review" role="tabpanel" aria-labelledby="tab-review" data-page="review" hidden>

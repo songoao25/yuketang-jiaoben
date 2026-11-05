@@ -45,6 +45,7 @@ type App struct {
 	batchStore        *batch.Store
 	batchLogin        *batch.LoginSession
 	batchLoginAccount string
+	batchQueue        *batch.Queue
 }
 
 // NewApp 创建窗口后端。scriptSource 是内置用户脚本正文。
@@ -75,6 +76,9 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) shutdown(ctx context.Context) {
 	a.closeBatchLogin()
+	if a.batchQueue != nil {
+		a.batchQueue.Stop()
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.srv != nil {
