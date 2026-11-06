@@ -337,3 +337,35 @@ func (c *cdpConn) Close() {
 		_, _ = c.cmd.Process.Wait()
 	}
 }
+
+// AllCookies 返回当前浏览器的全部 Cookie（name@domain@path -> value），
+// 用于判断登录过程中是否真的产生了新的登录态，而不是停在主页/扫码页。
+func (c *cdpConn) AllCookies(ctx context.Context, sessionID string) (map[string]string, error) {
+	if _, err := c.call(ctx, "Network.enable", nil, sessionID); err != nil {
+		return nil, err
+	}
+	raw, err := c.call(ctx, "Network.getAllCookies", nil, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Cookies []struct {
+			Name     string `json:"name"`
+			Value    string `json:"value"`
+			Domain   string `json:"domain"`
+			Path     string `json:"path"`
+			HTTPOnly bool   `json:"httpOnly"`
+		} `json:"cookies"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	cookies := make(map[string]string, len(out.Cookies))
+	for _, cookie := range out.Cookies {
+		if cookie.Name == "" {
+			continue
+		}
+		cookies[cookie.Name+"@"+cookie.Domain+cookie.Path] = cookie.Value
+	}
+	return cookies, nil
+}

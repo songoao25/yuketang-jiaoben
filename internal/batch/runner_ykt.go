@@ -103,11 +103,11 @@ func (r *YKTRunner) Run(ctx context.Context, account Account, logf func(level, t
 		return RunOutcome{Err: fmt.Errorf("打开页面失败：%v", err)}
 	}
 
-	signals, loggedIn, err := readLoginSignals(ctx, conn, session)
+	needsLogin, signals, err := readLoginSignals(ctx, conn, session)
 	if err != nil {
 		return RunOutcome{Err: fmt.Errorf("读取登录状态失败：%v", err)}
 	}
-	if !loggedIn {
+	if needsLogin {
 		return RunOutcome{NeedsLogin: true, Err: fmt.Errorf("登录态失效（当前页：%s）", signals.URL)}
 	}
 
@@ -184,11 +184,22 @@ func readButtonState(ctx context.Context, conn *cdpConn, session string) (button
 	return state, nil
 }
 
-func readLoginSignals(ctx context.Context, conn *cdpConn, session string) (LoginSignals, bool, error) {
-	value, err := conn.Evaluate(ctx, session,
-		`(function(){return {url:location.href,title:document.title,has_password_form:!!document.querySelector('input[type="password"]')};})()`)
+// readLoginSignals 判断是否停在登录页。
+// 批量执行时账号的 profile 本来就是已登录状态，不能用「Cookie 是否变化」判断；
+// 这里只检查登录 UI（密码框/手机号/扫码/登录表单），没有登录 UI 就继续等脚本面板，
+// 面板出现本身就说明登录和课程页都正常。
+func readLoginSignals(ctx context.Context, conn *cdpConn, session string) (bool, LoginSignals, error) {
+	value, err := conn.Evaluate(ctx, session, `(function(){
+		var body = document.body ? document.body.innerText : '';
+		body = body.slice(0, 2000);
+		var password = !!document.querySelector('input[type="password"]');
+		var account = !!document.querySelector('input[name*="phone"],input[name*="account"],input[name*="username"],input[type="tel"]');
+		var qr = /扫码登录|二维码登录|微信扫码|验证码登录/.test(body);
+		var formText = /登录/.test(body) && /(手机号|账号|密码|验证码|二维码)/.test(body);
+		return {url:location.href,title:document.title,has_password_form:password,has_login_ui:password||account||qr||formText};
+	})()`)
 	if err != nil {
-		return LoginSignals{}, false, err
+		return false, LoginSignals{}, err
 	}
 	signals := LoginSignals{}
 	if fields, ok := value.(map[string]any); ok {
@@ -201,8 +212,12 @@ func readLoginSignals(ctx context.Context, conn *cdpConn, session string) (Login
 		if raw, ok := fields["has_password_form"].(bool); ok {
 			signals.HasPasswordForm = raw
 		}
+		if raw, ok := fields["has_login_ui"].(bool); ok {
+			signals.HasLoginUI = raw
+		}
 	}
-	return signals, signals.LoggedIn(), nil
+	needsLogin := isLoginURL(signals.URL) || signals.HasPasswordForm || signals.HasLoginUI
+	return needsLogin, signals, nil
 }
 
 func clickStart(ctx context.Context, conn *cdpConn, session string) error {

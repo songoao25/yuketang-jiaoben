@@ -989,7 +989,7 @@
     var api = bindings();
     if (!api || typeof api.OpenBatchLogin !== 'function') { toast('未检测到 App 绑定', 'error'); return; }
     api.OpenBatchLogin(id).then(function () {
-      setBatchLoginText('已打开浏览器，请在浏览器里完成登录；完成后点「我已完成登录」。');
+      setBatchLoginText('已打开浏览器。请完成登录（扫码/密码均可），确认页面已进入课程首页后，点「我已完成登录」。');
       stopBatchLoginPolling();
       batchLoginTimer = window.setInterval(pollBatchLoginOnce, 1500);
     }).catch(function (err) {
@@ -1008,10 +1008,10 @@
     api.GetBatchLoginState(id).then(function (status) {
       if (!status || !status.open) return;
       if (status.logged_in) {
-        setBatchLoginText('已检测到登录成功，正在保存…');
-        if (!batchLoginDone) { batchLoginDone = true; completeBatchLogin(); }
+        // 只提示，不自动保存：登录态必须由用户亲眼确认后点按钮，避免主页/扫码页被误判成已登录。
+        setBatchLoginText('检测到已进入登录后的页面。请在浏览器确认登录成功，然后点「我已完成登录」。');
       } else {
-        setBatchLoginText('请在浏览器里完成登录' + (status.url ? '（当前页面：' + status.url + '）' : '') + '，完成后点「我已完成登录」。');
+        setBatchLoginText('还没有检测到登录完成。请在浏览器里完成登录（扫码/密码均可），然后点「我已完成登录」。');
       }
     }).catch(function () { /* 轮询失败不打扰，继续等 */ });
   }
