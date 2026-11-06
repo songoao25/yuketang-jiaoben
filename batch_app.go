@@ -376,6 +376,7 @@ func (a *App) notifyBatchDone(state batch.QueueState) {
 
 // StartBatch 开始顺序批量运行（只运行已登录账号；未登录会提示先登录）。
 func (a *App) StartBatch(ids []string) (batch.QueueState, error) {
+	return batch.QueueState{}, errors.New("批量功能正在重构：课程选择、范围和数量配置还没做完，暂不可用")
 	store, err := a.batchStoreOrErr()
 	if err != nil {
 		return batch.QueueState{}, err

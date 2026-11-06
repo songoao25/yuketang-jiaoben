@@ -1054,13 +1054,18 @@
     var startBtn = $('#btnBatchStart');
     var stopBtn = $('#btnBatchStop');
     var running = !!(state && (state.state === 'running' || state.state === 'stopping'));
-    if (startBtn) startBtn.hidden = running;
+    if (startBtn) {
+      startBtn.hidden = running;
+      startBtn.disabled = true;
+      startBtn.textContent = '批量配置开发中';
+      startBtn.title = '课程选择、范围和数量配置还没做完';
+    }
     if (stopBtn) stopBtn.hidden = !running;
     if (textEl) {
       if (!state || !state.state || state.state === 'idle') {
         textEl.textContent = batchAccounts.length
-          ? '已登录账号会按顺序运行；账号之间会自动停顿'
-          : '先添加账号并完成登录，才能开始批量';
+          ? '批量功能正在重构：课程选择、范围和数量配置还没做完，暂不可用'
+          : '先添加账号并完成登录；批量配置还在开发中';
       } else if (state.state === 'running') {
         var items = Array.isArray(state.items) ? state.items : [];
         var total = items.length;
@@ -1089,6 +1094,8 @@
   }
 
   function startBatch() {
+    toast('批量功能正在重构：还不能选择课程和范围，暂不可用', 'warning');
+    return;
     var ready = batchAccounts.filter(function (account) { return account.login_state === 'logged_in'; });
     if (!ready.length) { toast('没有已登录的账号，先完成登录', 'warning'); return; }
     openConfirm({
