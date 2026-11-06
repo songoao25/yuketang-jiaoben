@@ -20,6 +20,7 @@ import (
 type YKTRunner struct {
 	ScriptSource string
 	ProfileDir   func(account Account) (string, error)
+	Cookies      func(account Account) ([]CookieRecord, error)
 
 	Headless     bool
 	StartTimeout time.Duration
@@ -87,6 +88,16 @@ func (r *YKTRunner) Run(ctx context.Context, account Account, logf func(level, t
 	}
 	if err := conn.EnablePage(ctx, session); err != nil {
 		return RunOutcome{Err: fmt.Errorf("初始化页面失败：%v", err)}
+	}
+	// 把登录时保存的 Cookie 注入批量浏览器（Chrome 会话 Cookie 不会跨进程保留）。
+	if r.Cookies != nil {
+		if records, err := r.Cookies(account); err == nil && len(records) > 0 {
+			if err := conn.SetCookies(ctx, session, records); err != nil {
+				log("warning", "注入登录 Cookie 失败："+err.Error())
+			} else {
+				log("info", fmt.Sprintf("已恢复 %d 个登录 Cookie", len(records)))
+			}
+		}
 	}
 
 	// 先注入 shim 与用户脚本，再导航，确保脚本在 document-start 阶段生效。

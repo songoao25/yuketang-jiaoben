@@ -193,14 +193,26 @@ func (a *App) CompleteBatchLogin(id string) error {
 	if err != nil {
 		return err
 	}
+	// Chrome 的会话 Cookie 不会跨进程保留；完成登录时读取完整 Cookie 存到本机（0600），
+	// 批量运行时再注入，这样关掉登录浏览器后登录态仍在。
+	cookies, err := session.CookieRecords(ctx)
+	if err != nil {
+		return fmt.Errorf("读取登录 Cookie 失败：%v", err)
+	}
+	if !batch.HasAuthCookie(cookies) {
+		return fmt.Errorf("没有读到登录态 Cookie（可能登录还没完成或只加载了登录页），请确认已登录后再试")
+	}
+	if err := store.SaveCookies(id, cookies); err != nil {
+		return fmt.Errorf("保存登录 Cookie 失败：%v", err)
+	}
 	if err := store.SetLoginState(id, batch.LoginOK, ""); err != nil {
 		return err
 	}
 	a.batchMu.Lock()
-	session.Close()
 	a.batchLogin = nil
 	a.batchLoginAccount = ""
 	a.batchMu.Unlock()
+	session.Close()
 	a.emitBatchChanged()
 	return nil
 }
@@ -255,6 +267,9 @@ func (a *App) ensureBatchQueue() (*batch.Queue, error) {
 		ScriptSource: scriptSource,
 		ProfileDir: func(account batch.Account) (string, error) {
 			return store.ProfileDir(account.ID)
+		},
+		Cookies: func(account batch.Account) ([]batch.CookieRecord, error) {
+			return store.LoadCookies(account.ID)
 		},
 		Headless:     true,
 		StartTimeout: 90 * time.Second,

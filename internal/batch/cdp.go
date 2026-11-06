@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -368,4 +369,110 @@ func (c *cdpConn) AllCookies(ctx context.Context, sessionID string) (map[string]
 		cookies[cookie.Name+"@"+cookie.Domain+cookie.Path] = cookie.Value
 	}
 	return cookies, nil
+}
+
+// CookieRecord 是可持久化的完整 Cookie（用于把登录态从登录浏览器带到批量浏览器）。
+type CookieRecord struct {
+	Name     string  `json:"name"`
+	Value    string  `json:"value"`
+	Domain   string  `json:"domain"`
+	Path     string  `json:"path"`
+	Secure   bool    `json:"secure"`
+	HTTPOnly bool    `json:"httpOnly"`
+	Expires  float64 `json:"expires,omitempty"`
+	SameSite string  `json:"sameSite,omitempty"`
+}
+
+// AllCookieRecords 返回完整 Cookie 记录（含 HttpOnly / 过期时间）。
+func (c *cdpConn) AllCookieRecords(ctx context.Context, sessionID string) ([]CookieRecord, error) {
+	if _, err := c.call(ctx, "Network.enable", nil, sessionID); err != nil {
+		return nil, err
+	}
+	raw, err := c.call(ctx, "Network.getAllCookies", nil, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Cookies []CookieRecord `json:"cookies"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	records := make([]CookieRecord, 0, len(out.Cookies))
+	for _, cookie := range out.Cookies {
+		if cookie.Name == "" {
+			continue
+		}
+		records = append(records, cookie)
+	}
+	return records, nil
+}
+
+// SetCookies 把保存的登录 Cookie 注入当前浏览器。
+func (c *cdpConn) SetCookies(ctx context.Context, sessionID string, records []CookieRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+	if _, err := c.call(ctx, "Network.enable", nil, sessionID); err != nil {
+		return err
+	}
+	for _, record := range records {
+		if strings.TrimSpace(record.Domain) == "" {
+			continue
+		}
+		params := map[string]any{
+			"name":     record.Name,
+			"value":    record.Value,
+			"domain":   record.Domain,
+			"path":     defaultString(record.Path, "/"),
+			"secure":   record.Secure,
+			"httpOnly": record.HTTPOnly,
+		}
+		if record.Expires > 0 {
+			params["expires"] = record.Expires
+		}
+		if record.SameSite != "" {
+			params["sameSite"] = record.SameSite
+		}
+		if _, err := c.call(ctx, "Network.setCookie", params, sessionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func defaultString(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+// Shutdown 请求 Chrome 优雅退出并等待 Cookie/Profile 落盘，避免直接 kill 丢失会话 Cookie。
+func (c *cdpConn) Shutdown(ctx context.Context) {
+	if c == nil {
+		return
+	}
+	_, _ = c.call(ctx, "Browser.close", nil, "")
+	done := make(chan struct{})
+	go func() {
+		if c.cmd != nil && c.cmd.Process != nil {
+			_, _ = c.cmd.Process.Wait()
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
+	c.writeMu.Lock()
+	if c.toChrome != nil {
+		_ = c.toChrome.Close()
+		c.toChrome = nil
+	}
+	c.writeMu.Unlock()
+	if c.fromChrome != nil {
+		_ = c.fromChrome.Close()
+		c.fromChrome = nil
+	}
 }

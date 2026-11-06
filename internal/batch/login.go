@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // LoginSignals 是从登录页面读到的登录判断信号。
@@ -171,10 +172,39 @@ func (s *LoginSession) LoggedIn(ctx context.Context) (LoginSignals, bool, error)
 	return signals, signals.LoggedIn(), nil
 }
 
-// Close 关闭登录浏览器。
+// Close 优雅关闭浏览器：请求 Chrome 退出并等待 Cookie 落盘，避免会话 Cookie 丢失。
 func (s *LoginSession) Close() {
-	if s != nil && s.conn != nil {
-		s.conn.Close()
-		s.conn = nil
+	if s == nil || s.conn == nil {
+		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	s.conn.Shutdown(ctx)
+	s.conn = nil
+}
+
+// CookieRecords 返回当前完整 Cookie（完成登录后持久化用）。
+func (s *LoginSession) CookieRecords(ctx context.Context) ([]CookieRecord, error) {
+	return s.conn.AllCookieRecords(ctx, s.session)
+}
+
+// hasAuthCookie 判断是否包含登录态 Cookie（csrftoken 单独不算登录）。
+func hasAuthCookie(records []CookieRecord) bool {
+	for _, cookie := range records {
+		name := strings.ToLower(cookie.Name)
+		if name == "" || name == "csrftoken" || name == "csrf_token" {
+			continue
+		}
+		for _, marker := range []string{"session", "token", "ticket", "auth", "sid", "uniq", "vst", "university", "user"} {
+			if strings.Contains(name, marker) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasAuthCookie 判断一组 Cookie 里是否存在登录态 Cookie（供 App 层保存前校验）。
+func HasAuthCookie(records []CookieRecord) bool {
+	return hasAuthCookie(records)
 }

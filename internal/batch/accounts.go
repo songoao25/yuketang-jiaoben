@@ -225,6 +225,7 @@ func (s *Store) Remove(id string) error {
 	if err := os.RemoveAll(profileAbs); err != nil {
 		return fmt.Errorf("删除浏览器数据失败：%v", err)
 	}
+	_ = os.Remove(s.cookiesPath(id))
 	return nil
 }
 
@@ -304,4 +305,46 @@ func newAccountID() (string, error) {
 // QueueStatePath 返回批量队列快照文件路径（用于崩溃恢复）。
 func (s *Store) QueueStatePath() string {
 	return filepath.Join(s.baseDir, "queue-state.json")
+}
+
+// cookiesPath 返回账号登录 Cookie 的本地保存路径。
+func (s *Store) cookiesPath(id string) string {
+	return filepath.Join(s.baseDir, "cookies", id+".json")
+}
+
+// SaveCookies 保存账号登录 Cookie（0600，仅本机）。
+func (s *Store) SaveCookies(id string, cookies []CookieRecord) error {
+	if _, ok := s.Get(id); !ok {
+		return fmt.Errorf("账号不存在：%s", id)
+	}
+	dir := filepath.Join(s.baseDir, "cookies")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(cookies, "", "  ")
+	if err != nil {
+		return err
+	}
+	path := s.cookiesPath(id)
+	temp := path + ".tmp"
+	if err := os.WriteFile(temp, encoded, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(temp, path)
+}
+
+// LoadCookies 读取账号保存的登录 Cookie。
+func (s *Store) LoadCookies(id string) ([]CookieRecord, error) {
+	raw, err := os.ReadFile(s.cookiesPath(id))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var cookies []CookieRecord
+	if err := json.Unmarshal(raw, &cookies); err != nil {
+		return nil, fmt.Errorf("登录 Cookie 文件损坏：%v", err)
+	}
+	return cookies, nil
 }

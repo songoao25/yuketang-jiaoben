@@ -128,3 +128,39 @@ func TestAccountValidation(t *testing.T) {
 		t.Fatalf("重命名未生效：%+v", got)
 	}
 }
+
+func TestAccountCookiesSaveLoadRemove(t *testing.T) {
+	store := newTestStore(t)
+	account, err := store.Add("Cookie 账号", "")
+	if err != nil {
+		t.Fatalf("添加账号失败：%v", err)
+	}
+	cookies := []CookieRecord{{Name: "sessionid", Value: "test-value", Domain: ".yuketang.cn", Path: "/", Secure: true, HTTPOnly: true}}
+	if err := store.SaveCookies(account.ID, cookies); err != nil {
+		t.Fatalf("保存 Cookie 失败：%v", err)
+	}
+	loaded, err := store.LoadCookies(account.ID)
+	if err != nil || len(loaded) != 1 || loaded[0].Name != "sessionid" || loaded[0].Value != "test-value" {
+		t.Fatalf("读取 Cookie 失败：%+v %v", loaded, err)
+	}
+	path := store.cookiesPath(account.ID)
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("Cookie 文件权限应为 0600：%v %v", err, info)
+	}
+	if err := store.Remove(account.ID); err != nil {
+		t.Fatalf("删除账号失败：%v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("删除账号应清理 Cookie 文件：%v", err)
+	}
+}
+
+func TestHasAuthCookie(t *testing.T) {
+	if HasAuthCookie([]CookieRecord{{Name: "csrftoken", Value: "x"}}) {
+		t.Fatal("只有 csrftoken 不应算登录态")
+	}
+	if !HasAuthCookie([]CookieRecord{{Name: "csrftoken"}, {Name: "sessionid", Value: "x"}}) {
+		t.Fatal("sessionid 应算登录态")
+	}
+}
